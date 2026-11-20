@@ -1,11 +1,11 @@
 import { Fragment, type ReactNode } from 'react'
 import { Pill } from '@/shared/components/ui'
-import { formatPersonName } from '@/shared/lib/personName'
 import { JURISDICTION_LABELS } from '@/features/legal-params'
 import { PROCEDURAL_ROLE_LABELS, type Case } from '@/features/cases/types/case'
 import { caseStateLabel } from '@/features/cases/utils/caseState'
 import { deadlineStatus } from '@/features/cases/utils/deadlineStatus'
 import { DEADLINE_KIND_LABELS, openDeadline } from '@/features/cases/utils/openDeadline'
+import { responsibleLabel } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
 
 export interface CaseHeaderProps {
@@ -44,7 +44,7 @@ export function CaseHeader({ case: c, showInstructor = false, actions, details, 
         c.court,
         <>Fuero <b>{JURISDICTION_LABELS[c.jurisdiction]}</b></>,
         <>Rol <b>{PROCEDURAL_ROLE_LABELS[c.proceduralRole]}</b></>,
-        <>Responsable <b>{formatPersonName(c.responsibleLawyer)}</b></>,
+        <>Responsable <b>{responsibleLabel(c)}</b></>,
     ].filter(Boolean)
 
     const instructor: ReactNode[] = showInstructor

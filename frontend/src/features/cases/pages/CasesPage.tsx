@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Button, Icon, PageHeader, Pagination, Panel, SearchInput, LoadError } from '@/shared/components/ui'
 import type { SelectOption, SelectOptionGroup } from '@/shared/components/forms'
@@ -14,6 +13,7 @@ import {
     type ProceduralState,
 } from '@/features/legal-params'
 import { useCases, usePrefetchCasesPage } from '@/features/cases/api/useCases'
+import { useCaseFilters } from '@/features/cases/hooks/useCaseFilters'
 import { useCaseCustomStates } from '@/features/cases/api/useCaseCustomStates'
 import { usePrefetchCase } from '@/features/cases/api/usePrefetchCase'
 import { CaseFilters } from '@/features/cases/components/CaseFilters'
@@ -26,6 +26,7 @@ import {
     stateFilterValue,
     WITHOUT_ACTS,
 } from '@/features/cases/utils/stateFilter'
+import { responsibleFilterParams } from '@/features/cases/utils/responsibleFilter'
 
 const LIMIT = 20
 //Limite de opciones para poner en los selects, 
@@ -41,13 +42,11 @@ export function CasesPage() {
     const prefetchCase = usePrefetchCase()
 
     /* ---------------- las busquedas y filtros del usuario ---------------- */
-    const [search, setSearch] = useState('')
+    /* En la URL, no en el estado: sobreviven a entrar a una causa y volver
+       (`useCaseFilters`, cases/CAMBIOS.md). */
+    const filters = useCaseFilters()
+    const { search, page, jurisdiction, state, responsibleLawyerId, openDeadline, update } = filters
     const debouncedSearch = useDebouncedValue(search.trim())
-    const [page, setPage] = useState(1)
-    const [jurisdiction, setJurisdiction] = useState<Jurisdiction | ''>('')
-    const [state, setState] = useState(ALL_STATES)
-    const [responsibleLawyerId, setResponsibleLawyerId] = useState('')
-    const [openDeadline, setOpenDeadline] = useState(false)
 
         /* ---------------- Causas ---------------- */
 
@@ -57,7 +56,8 @@ export function CasesPage() {
             page,
             limit: LIMIT,
             jurisdiction: jurisdiction === '' ? undefined : jurisdiction,
-            responsibleLawyerId: responsibleLawyerId === '' ? undefined : Number(responsibleLawyerId),
+            // Un abogado o "Sin asignar" (D-143): nunca los dos, salen del mismo select.
+            ...responsibleFilterParams(responsibleLawyerId),
             openDeadline: openDeadline ? true : undefined,
             ...stateFilterParams(state),
         }
@@ -100,8 +100,7 @@ export function CasesPage() {
 
      /* ---------------- cambios: cada uno vuelve a la página 1 ---------------- */
     function changeSearch(value: string) {
-        setSearch(value)
-        setPage(1)
+        update({ search: value, page: 1 })
     }
 
     function keepsState(next: Jurisdiction | ''): boolean {
@@ -110,32 +109,24 @@ export function CasesPage() {
     }
 
     function changeJurisdiction(next: Jurisdiction | '') {
-        setJurisdiction(next)
-        if (!keepsState(next)) setState(ALL_STATES)
-        setPage(1)
+        update({ jurisdiction: next, page: 1, ...(keepsState(next) ? {} : { state: ALL_STATES }) })
     }
 
     function changeResponsibleLawyer(value: string) {
-        setResponsibleLawyerId(value)
-        setPage(1)
+        update({ responsibleLawyerId: value, page: 1 })
     }
 
     function changeState(value: string) {
-        setState(value)
-        setPage(1)
+        update({ state: value, page: 1 })
     }
 
     function changeOpenDeadline(value: boolean) {
-        setOpenDeadline(value)
-        setPage(1)
+        update({ openDeadline: value, page: 1 })
     }
 
+    /* Saca los cuatro filtros y deja el buscador como está. */
     function clearFilters() {
-        setJurisdiction('')
-        setResponsibleLawyerId('')
-        setState(ALL_STATES)
-        setOpenDeadline(false)
-        setPage(1)
+        update({ jurisdiction: '', responsibleLawyerId: '', state: ALL_STATES, openDeadline: false, page: 1 })
     }
 
     /* ---------------- pantalla ---------------- */
@@ -182,7 +173,7 @@ export function CasesPage() {
                         totalPages={pagination?.totalPages ?? 1}
                         totalItems={pagination?.totalItems ?? 0}
                         noun={['causa', 'causas']}
-                        onChange={setPage}
+                        onChange={(next) => update({ page: next })}
                         onIntent={prefetchPage}
                     />
                 )}

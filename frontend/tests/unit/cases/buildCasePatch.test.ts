@@ -47,6 +47,7 @@ const CRIMINAL: Case = {
         clientSince: '2021-03-01',
     },
     responsibleLawyer: { id: 2, lastName: 'Ríos', firstName: 'Malena', registrationNumber: '1-30122' },
+    orphanedAt: null,
     legalQualifications: [
         {
             id: 1,

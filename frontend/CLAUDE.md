@@ -362,7 +362,7 @@ Varios módulos necesitan datos de otros. Cada dueño publica **sólo eso** en s
 | `clients` | `useClients`, `useCreateClient`, `ClientFormModal`, `validateClient`, `isValidClient`, `toClientFormErrors`, `formatClientName`, `formatDocument`, `formatDocumentNumber`, `DOCUMENT_TYPES`, `DOCUMENT_TYPE_LABELS`, `toCreateClientBody` | Registrar y modificar causa: select de cliente y "Registrar cliente nuevo" |
 | `legal-params` | `useLegalQualifications`, `useCreateLegalQualification`, `LegalQualificationFormModal`, `validateLegalQualification`, `toCreateLegalQualificationBody`, `toLegalQualificationFormErrors`, `useProceduralStates`, `isPrescribedState`, el formateo de la prescripción, los rótulos de fueros y tipos de día | Registrar y modificar causa, Registrar acto, Modelos (los fueros) y los tableros |
 | `documents` | `useDocumentTemplates`, `DocumentTemplate` | Registrar causa: cuántos modelos del fuero se van a copiar (CA-40.10) |
-| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `refreshCaseAfterAct` (las mutaciones de actos esperan la causa nueva), `CaseHeader`, `CaseHeaderSkeleton`, `CasePrescriptionBar` (la barra con la elección de D-112), `PrescriptionBar`, `nearestQualification`, `openDeadline`, `isResponsibleLawyer`, `sacLabel`, `ClientActiveCases`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar y modificar acto (muestra la causa y, al guardar, invalida sus claves), los tableros y, desde `src/app/router/ClientsRoute.tsx`, la baja de un cliente (sus causas activas) |
+| `cases` | `useCase`, `useCreateCase`, `casesKeys`, `refreshCaseAfterAct` (las mutaciones de actos esperan la causa nueva), `CaseHeader`, `CaseHeaderSkeleton`, `CasePrescriptionBar` (la barra con la elección de D-112), `PrescriptionBar`, `nearestQualification`, `openDeadline`, `isResponsibleLawyer`, `canActOnCase`, `caseActors`, `isOrphanCase`, `responsibleLabel`, `UNASSIGNED_LABEL` (causa huérfana, D-143), `casesListPath` (la miga "Causas"), `sacLabel`, `ClientActiveCases`, los rótulos y los tipos de la causa y del acto procesal (`ProceduralAct`, `ActDeadline`) | Registrar y modificar acto (muestra la causa y, al guardar, invalida sus claves), los tableros y, desde `src/app/router/ClientsRoute.tsx`, la baja de un cliente (sus causas activas) |
 | `deadlines` | `DAILY_RUN_ENABLED`, `useRunDailyNotifications` | La campana de la barra superior (`AppLayout`), sólo en desarrollo (`deadlines/CAMBIOS.md`) |
 
 `proceedings`, `dashboard`, `tools`, `users` y `auth` no publican nada: ningún
@@ -722,9 +722,13 @@ Son las de V5. Lo que V4 y V5 cambiaron está marcado con su decisión.
   obligatoria si el estado abre plazo (RN6).
 - **Sólo el abogado responsable de la causa registra sus actos** (D-30),
   procesales e interruptivos. No es un rol: ni otro abogado ni el
-  administrador pueden. Se decide con `isResponsibleLawyer` (publicado por
+  administrador pueden. Se decide con `canActOnCase` (publicado por
   `cases`), que compara la ficha del usuario con el responsable de la causa; el
-  backend responde `403` a quien no lo es, también en `deadline-preview`. El
+  backend responde `403` a quien no lo es, también en `deadline-preview`.
+  **Única excepción, la causa huérfana** (D-143, V6 §4): no tiene responsable
+  y sus actos los registra, modifica y anula sólo el Administrador
+  (`cases.actOnOrphanCase`). Ningún abogado. Ver
+  [Revisión de V6 del 16 y 17/11/2026](#revisión-de-v6-del-16-y-17112026). El
   acto se aplica a la causa al registrarse: no hay actos pendientes ni
   confirmación (D-13).
 - **Carpeta de la causa** (V4 D-59, D-60, D-83; V5 D-104): la crea el backend
@@ -865,6 +869,23 @@ regla de V5 que V6 cambia, y se ajustó al programar el Sprint 5. **Al
 | ~~Dos comentarios dicen que anular un acto (HU29) "queda fuera del contrato"~~ **Corregido el 14/11/2026, con HU29** | `src/features/cases/components/CaseTimeline.tsx`, `src/features/proceedings/types/proceduralAct.ts` | Está en V6: `DELETE /cases/{caseId}/procedural-acts/{actId}` |
 | ~~"Reportes" está en el rail y en `ROUTE_ACCESS`, pero no tiene ruta~~ **Aplicado (HU43, 14/11/2026)** | `src/app/layouts/AppLayout.tsx`, `src/app/router/index.tsx` | `ReportsPage` en `/reportes`, solo `ADMINISTRATOR` |
 
+### Revisión de V6 del 16 y 17/11/2026
+
+Causa huérfana (D-143, D-144, D-145) y cambio de responsable en la línea de
+vida (D-147), que el backend trajo en `feat/orphan-cases`. **Aplicado en la
+app, en los mocks y en los tests (19/11/2026).** El detalle de pantalla está en
+`cases/CAMBIOS.md`, `lawyers/CAMBIOS.md` y `dashboard/CAMBIOS.md`.
+
+| Cambio | En el front |
+|---|---|
+| `responsibleLawyer` puede ser `null` y la causa suma `orphanedAt` | Tipos; "Sin asignar" donde va el responsable (`responsibleLabel`); aviso y "Asignar responsable" en el detalle; "Modificar causa" arranca sin responsable y pide elegir uno |
+| Los actos de una huérfana son sólo del Administrador | `cases.actOnOrphanCase` y `canActOnCase`; notas de los botones (`caseActors`); "Registrar acto procesal" |
+| `GET /cases?unassigned=true`, excluyente con `responsibleLawyerId` | Opción "Sin asignar" del filtro de responsable (`utils/responsibleFilter`) |
+| `DELETE /lawyers` acepta `{ caseId, unassigned: true }` | Lo que queda en "Sin asignar" se confirma con su lista y viaja así |
+| `unassigned` en `GET /reports/monthly` y alertas con `responsibleLawyer` en `null` | Renglón "Sin asignar" de la carga por abogado |
+| Entrada `RESPONSIBLE_LAWYER_CHANGE` en la línea de vida | `ResponsibleLawyerChangeItem` en `CaseTimeline` |
+| Los tableros no cuentan las huérfanas (C-49, abierto) | Sin cambios |
+
 Si el contrato vuelve a cambiar, **no se toca de una**: primero se listan los
 cambios y se acuerdan, después se aplican al contrato, a los mocks, a los tipos
 y a este archivo.
@@ -902,7 +923,12 @@ Lo que hay que saber:
   anula y previsualiza su vencimiento sólo el abogado responsable de la causa. `mrios` lleva la 1 y la
   17; `fvazquez`, la 4, la 6 y la 20; `mferreyra`, la 7; `sledesma`, la 15 y la
   16. Con cualquier otro usuario el mock responde `403`, aunque sea abogado o
-  administrador.
+  administrador. En una causa huérfana (D-143), sólo un `ADMINISTRATOR`.
+- **Causas huérfanas:** ninguna semilla lo es. Se llega dando de baja a un
+  abogado y dejando una causa "Sin asignar" (como en el backend), y en los
+  tests con `orphanCase(id)` de `tests/setup/orphan.ts`. El mock guarda los
+  cambios de responsable (`db.responsibleChanges`, D-147) para la línea de
+  vida, sólo hacia adelante.
 - **Datos semilla:** 23 causas, 23 clientes vigentes, 8 calificaciones
   vigentes, 12 modelos vigentes y uno dado de baja. Las causas 1 a 6 son las
   del prototipo; el resto cubre cada regla: en "Iniciada" (7, 11, 22 y 23), sin
@@ -1225,6 +1251,7 @@ puede decir: una pantalla que ven varios perfiles, con algo que es de uno solo.
 | `cases.declarePrescription` | Administrador y Abogado | Que se vea "Marcar prescripta" en el detalle de causa |
 | `cases.declarePrescriptionAnyCase` | Administrador | "Marcar prescripta" una causa de la que no es responsable (D-110). Un abogado, sólo las suyas |
 | `cases.operateAnyCase` | Administrador y Secretaría | "Modificar causa", "Dar de baja" y crear o reintentar la carpeta de cualquier causa (D-110). Un abogado, sólo las suyas; lo combina `caseOperation` |
+| `cases.actOnOrphanCase` | Administrador | Registrar, modificar y anular los actos de una causa huérfana (D-143). En las demás, sólo el responsable; lo combina `canActOnCase` |
 | `cases.downloadDocument` | Abogado y Secretaría | "Descargar" un documento que no es un expediente, en la tarjeta "Documentación" (D-103). El expediente lo descarga cualquiera |
 
 ```tsx
@@ -1254,8 +1281,8 @@ const canCreate = useCan('lawyers.create')   // de @/app/access/useCan
 
 **Lo que no es un permiso por rol no va en ninguna de las dos tablas.**
 Registrar un acto procesal o un acto interruptivo depende de la causa: sólo su
-abogado responsable (D-30). Se resuelve en la pantalla con
-`isResponsibleLawyer`.
+abogado responsable (D-30). Se resuelve en la pantalla con `canActOnCase`,
+que en una causa huérfana le suma `cases.actOnOrphanCase` (D-143).
 
 **Los roles de la sesión se mantienen al día.** Se guardan en el login, pero
 `AuthProvider` los vuelve a pedir al abrir la aplicación (`POST /auth/refresh`,
@@ -1332,6 +1359,14 @@ paso: cada uno es de su dueño.
    Administrador sin otro rol no tiene la carpeta compartida en Drive (D-83),
    así que Drive le niega el acceso al abrir un documento. Se decidió dejarlo
    así (03/11/2026); "Descargar" sí sigue la regla (`cases.downloadDocument`).
+8. **"Vitest failed to find the runner" en todos los tests, en Windows**
+   (19/11/2026). Pasa cuando la terminal está en `c:\…` con la letra de
+   unidad en minúscula (la de VS Code a veces abre así): Node carga `vitest`
+   dos veces y el setup queda colgado de la copia equivocada. No es el
+   código, la memoria ni la caché. Se arregla entrando con mayúscula, por
+   ejemplo `cd C:\Users\…\vzcausas\frontend`, y volviendo a correr
+   (angular-cli #33559, vitest #9473). Si se corre la suite con poca RAM
+   libre, conviene `--maxWorkers=4`.
 
 ## Checklist de un módulo
 

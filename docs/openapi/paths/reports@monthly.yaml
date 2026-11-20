@@ -45,6 +45,7 @@ get:
                   - summary
                   - byJurisdiction
                   - lawyers
+                  - unassigned
                   - monthly
                   - proceduralStates
                   - prescription
@@ -75,6 +76,22 @@ get:
                     type: array
                     items:
                       type: object
+                  unassigned:
+                    type: object
+                    description: |
+                      (D-145) Causas huérfanas activas al cierre, por fuero. Siempre
+                      viene, con ceros si no hay. No entra en el promedio, el
+                      mínimo ni el máximo.
+                    required: [criminal, administrative, amparo, total]
+                    properties:
+                      criminal:
+                        type: integer
+                      administrative:
+                        type: integer
+                      amparo:
+                        type: integer
+                      total:
+                        type: integer
                   monthly:
                     type: array
                     items:

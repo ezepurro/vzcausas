@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { FieldError, FormModal } from '@/shared/components/forms'
 import { Button, IconButton, LoadError, LoadingState, Skeleton } from '@/shared/components/ui'
 import { formatPersonName } from '@/shared/lib/personName'
@@ -12,7 +12,6 @@ import { linkedUserNotice } from '@/features/lawyers/utils/linkedUserNotice'
 import {
     assign,
     caseIdsFor,
-    isComplete,
     pendingCaseIds,
     syncReassignment,
     unassign,
@@ -37,9 +36,12 @@ export interface DeleteLawyerModalProps {
 
 /**
  * "Eliminar abogado" (HU15, V6 §3.3). Lista las causas activas del abogado y
- * pide un abogado vigente para cada una (CA-15.2): se marcan en "Sin asignar"
- * y se pasan a un abogado de "Pasan a". Avisa qué le pasa al usuario vinculado
- * (CA-15.5). Las terminales no se reparten: quedan como su historial.
+ * permite pasar cada una a otro abogado (CA-15.2): se marcan en "Sin asignar"
+ * y se pasan a un abogado de "Pasan a". Las que quedan sin asignar quedan
+ * huérfanas, sin responsable (D-143): no hace falta repartirlas todas, pero
+ * antes de enviar se avisa y se listan, junto con lo que le pasa al usuario
+ * vinculado (CA-15.5), y se pide confirmar (V6 §3.3). Las terminales no se
+ * reparten: quedan como su historial.
  *
  * El reparto se recalcula contra las causas de ahora en cada render: si
  * llegan otras (tras un `409`, CA-15.10), lo ya asignado se conserva y lo
@@ -52,7 +54,8 @@ export function DeleteLawyerModal({ lawyer, saving, error, onConfirm, onCancel }
 
     const [draft, setDraft] = useState<Reassignment>({})
     const [selected, setSelected] = useState<ReadonlySet<number>>(new Set())
-    /* Segundo paso: el aviso del usuario vinculado, a confirmar (CA-15.5). Un
+    /* Segundo paso: el aviso del usuario vinculado (CA-15.5) y las causas que
+       quedan sin asignar (D-143), a confirmar. Un
        rechazo del servidor vuelve al reparto, que es donde se corrige. */
     const [confirming, setConfirming] = useState(false)
     const [lastError, setLastError] = useState(error)
@@ -84,7 +87,11 @@ export function DeleteLawyerModal({ lawyer, saving, error, onConfirm, onCancel }
     const notice = linkedUser.data !== undefined ? linkedUserNotice(linkedUser.data) : null
     const count = cases.length
     const ready = !loading && failedQuery === null
-    const complete = isComplete(reassignment)
+
+    /* Las que se confirman sin asignar quedan sin responsable (D-143): la
+       confirmación las lista antes de enviar (V6 §3.3). */
+    const orphaned = pending
+    const needsConfirmation = notice !== null || orphaned.length > 0
 
     function toggle(id: number) {
         setSelected((s) => {
@@ -99,29 +106,30 @@ export function DeleteLawyerModal({ lawyer, saving, error, onConfirm, onCancel }
         setSelected(marked.length === pending.length ? new Set() : new Set(pending))
     }
 
-    function assignTo(target: Lawyer) {
-        setDraft(assign(reassignment, marked, target.id))
+    function assignTo(lawyerId: number) {
+        setDraft(assign(reassignment, marked, lawyerId))
         setSelected(new Set())
     }
 
     function confirm() {
-        if (!ready || !complete) return
-        // Con usuario vinculado, primero se avisa qué le pasa y se confirma (CA-15.5).
-        if (notice && !confirming) {
+        if (!ready) return
+        /* Con usuario vinculado (CA-15.5) o con causas que quedan sin asignar
+           (D-143), primero se avisa y se confirma. */
+        if (needsConfirmation && !confirming) {
             setConfirming(true)
             return
         }
         onConfirm(reassignment, new Map(targets.map((t) => [t.id, t.lastName])))
     }
 
-    if (confirming && notice) {
+    if (confirming && needsConfirmation) {
         return (
             <FormModal
                 title="Eliminar abogado"
                 sub={lawyerLabel(lawyer)}
                 tone="danger"
                 width="sm"
-                note={notice}
+                note={notice ?? undefined}
                 values={{}}
                 onChange={() => {}}
                 okLabel="Confirmar y eliminar"
@@ -130,11 +138,31 @@ export function DeleteLawyerModal({ lawyer, saving, error, onConfirm, onCancel }
                 onConfirm={confirm}
                 onCancel={() => setConfirming(false)}
             >
-                <p className="vz-reassign__confirm">
-                    {count > 0
-                        ? `Se reasignan ${count} ${count === 1 ? 'causa' : 'causas'} y se da de baja a ${formatPersonName(lawyer)}. Su historial se conserva.`
-                        : `Se da de baja a ${formatPersonName(lawyer)}. Su historial se conserva.`}
-                </p>
+                <div className="vz-reassign__summary">
+                    <p className="vz-reassign__confirm">{confirmText(formatPersonName(lawyer), count - orphaned.length)}</p>
+                    {/* D-143: las que se confirman sin asignar quedan huérfanas. */}
+                    {orphaned.length > 0 && (
+                        <section className="vz-reassign__orphans" aria-labelledby="reassign-orphans">
+                            <span className="vz-reassign__label" id="reassign-orphans">
+                                {orphaned.length === 1 ? 'Queda sin asignar' : 'Quedan sin asignar'} · {orphaned.length}
+                            </span>
+                            <p className="vz-reassign__hint">
+                                Sin responsable hasta que se {orphaned.length === 1 ? 'la reasigne' : 'las reasigne'}.
+                            </p>
+                            <ul className="vz-reassign__orphan-list" aria-label="Causas que quedan sin asignar">
+                                {orphaned.map((id) => {
+                                    const c = caseById.get(id) as LawyerCase
+                                    return (
+                                        <li key={id}>
+                                            <span className="vz-reassign__assigned-caption" title={c.caption}>{c.caption}</span>
+                                            <span className="vz-reassign__sac">{c.sacNumber ?? 'Sin SAC'}</span>
+                                        </li>
+                                    )
+                                })}
+                            </ul>
+                        </section>
+                    )}
+                </div>
             </FormModal>
         )
     }
@@ -143,7 +171,7 @@ export function DeleteLawyerModal({ lawyer, saving, error, onConfirm, onCancel }
         ? undefined
         : count === 0
             ? 'No tiene causas activas: se da de baja sin reparto. Su historial se conserva.'
-            : `Tiene ${count} ${count === 1 ? 'causa activa' : 'causas activas'}. Asigná cada una a otro abogado antes de eliminarlo.`
+            : `Tiene ${count} ${count === 1 ? 'causa activa' : 'causas activas'}. Las que no asignes quedan sin responsable.`
 
     return (
         <FormModal
@@ -155,7 +183,7 @@ export function DeleteLawyerModal({ lawyer, saving, error, onConfirm, onCancel }
             values={{}}
             onChange={() => {}}
             okLabel={count > 0 ? 'Eliminar y reasignar' : 'Eliminar'}
-            okDisabled={saving || !ready || !complete}
+            okDisabled={saving || !ready}
             onConfirm={confirm}
             onCancel={onCancel}
         >
@@ -223,60 +251,22 @@ export function DeleteLawyerModal({ lawyer, saving, error, onConfirm, onCancel }
                         )}
                         {targets.map((target) => {
                             const assigned = caseIdsFor(reassignment, target.id)
-                            const name = formatPersonName(target)
                             return (
-                                <div className="vz-reassign__target" key={target.id}>
-                                    <div className="vz-reassign__target-head">
-                                        <div className="vz-reassign__target-name">
-                                            <div>{name}</div>
-                                            <div className="vz-reassign__load">
-                                                Causas activas:{' '}
-                                                {assigned.length > 0
-                                                    ? `${target.activeCases} → ${target.activeCases + assigned.length}`
-                                                    : target.activeCases}
-                                            </div>
-                                        </div>
-                                        {marked.length > 0 && (
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                aria-label={`Asignar ${marked.length} a ${name}`}
-                                                onClick={() => assignTo(target)}
-                                            >
-                                                Asignar {marked.length}
-                                            </Button>
-                                        )}
-                                        {assigned.length > 0 && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                aria-label={`Quitar todas las de ${name}`}
-                                                onClick={() => setDraft(unassign(reassignment, assigned))}
-                                            >
-                                                Quitar todas
-                                            </Button>
-                                        )}
-                                    </div>
-                                    {assigned.length > 0 && (
-                                        <ul className="vz-reassign__assigned">
-                                            {assigned.map((id) => {
-                                                const c = caseById.get(id) as LawyerCase
-                                                return (
-                                                    <li key={id}>
-                                                        <span className="vz-reassign__sac">{c.sacNumber ?? 'Sin SAC'}</span>
-                                                        <span className="vz-reassign__assigned-caption" title={c.caption}>{c.caption}</span>
-                                                        <IconButton
-                                                            name="close"
-                                                            label={`Quitar ${c.caption}`}
-                                                            className="vz-reassign__remove"
-                                                            onClick={() => setDraft(unassign(reassignment, [id]))}
-                                                        />
-                                                    </li>
-                                                )
-                                            })}
-                                        </ul>
-                                    )}
-                                </div>
+                                <TargetBlock
+                                    key={target.id}
+                                    name={formatPersonName(target)}
+                                    detail={<>
+                                        Causas activas:{' '}
+                                        {assigned.length > 0
+                                            ? `${target.activeCases} → ${target.activeCases + assigned.length}`
+                                            : target.activeCases}
+                                    </>}
+                                    assigned={assigned}
+                                    marked={marked.length}
+                                    caseById={caseById}
+                                    onAssign={() => assignTo(target.id)}
+                                    onRelease={(ids) => setDraft(unassign(reassignment, ids))}
+                                />
                             )
                         })}
                         </div>
@@ -291,6 +281,82 @@ export function DeleteLawyerModal({ lawyer, saving, error, onConfirm, onCancel }
             )}
         </FormModal>
     )
+}
+
+interface TargetBlockProps {
+    name: string
+    detail: ReactNode
+    /** Las causas que ya van a este destino. */
+    assigned: number[]
+    /** Cuántas hay marcadas en "Sin asignar". */
+    marked: number
+    caseById: ReadonlyMap<number, LawyerCase>
+    onAssign: () => void
+    /** Las vuelve a "Sin asignar". */
+    onRelease: (caseIds: number[]) => void
+}
+
+/** Un abogado de "Pasan a", con las causas que ya van a él. */
+function TargetBlock({ name, detail, assigned, marked, caseById, onAssign, onRelease }: TargetBlockProps) {
+    return (
+        <div className="vz-reassign__target">
+            <div className="vz-reassign__target-head">
+                <div className="vz-reassign__target-name">
+                    <div>{name}</div>
+                    <div className="vz-reassign__load">{detail}</div>
+                </div>
+                {marked > 0 && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        aria-label={`Asignar ${marked} a ${name}`}
+                        onClick={onAssign}
+                    >
+                        Asignar {marked}
+                    </Button>
+                )}
+                {assigned.length > 0 && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Quitar todas las de ${name}`}
+                        onClick={() => onRelease(assigned)}
+                    >
+                        Quitar todas
+                    </Button>
+                )}
+            </div>
+            {assigned.length > 0 && (
+                <ul className="vz-reassign__assigned">
+                    {assigned.map((id) => {
+                        const c = caseById.get(id) as LawyerCase
+                        return (
+                            <li key={id}>
+                                <span className="vz-reassign__sac">{c.sacNumber ?? 'Sin SAC'}</span>
+                                <span className="vz-reassign__assigned-caption" title={c.caption}>{c.caption}</span>
+                                <IconButton
+                                    name="close"
+                                    label={`Quitar ${c.caption}`}
+                                    className="vz-reassign__remove"
+                                    onClick={() => onRelease([id])}
+                                />
+                            </li>
+                        )
+                    })}
+                </ul>
+            )}
+        </div>
+    )
+}
+
+/**
+ * La línea de la confirmación: cuántas se reasignan y la baja. Las que quedan
+ * sin asignar van aparte, en su lista.
+ */
+function confirmText(name: string, reassigned: number): string {
+    const end = `se da de baja a ${name}. Su historial se conserva.`
+    if (reassigned === 0) return `Se da de baja a ${name}. Su historial se conserva.`
+    return `Se ${reassigned === 1 ? 'reasigna 1 causa' : `reasignan ${reassigned} causas`} y ${end}`
 }
 
 function sacText(c: LawyerCase): string {

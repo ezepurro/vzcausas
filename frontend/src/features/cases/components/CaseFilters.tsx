@@ -1,12 +1,13 @@
 import { Button, CollapsibleFilters } from '@/shared/components/ui'
 import { Select, type SelectOption, type SelectOptionGroup } from '@/shared/components/forms'
 import { JURISDICTION_LABELS, JURISDICTIONS, type Jurisdiction } from '@/features/legal-params'
+import { UNASSIGNED_FILTER_OPTION } from '@/features/cases/utils/responsibleFilter'
 import { ALL_STATES } from '@/features/cases/utils/stateFilter'
 
 export interface CaseFiltersProps {
     /** `''` = todos los fueros. */
     jurisdiction: Jurisdiction | ''
-    /** Id del abogado como texto; `''` = todos. */
+    /** Id del abogado como texto; `''` = todos; `UNASSIGNED_FILTER` = sin asignar (D-143). */
     responsibleLawyerId: string
     /** Valor de `utils/stateFilter`; `''` = todos. */
     state: string
@@ -64,7 +65,7 @@ export function CaseFilters({
             />
             <Select
                 aria-label="Filtrar por responsable"
-                options={[{ value: '', label: 'Todos los responsables' }, ...lawyerOptions]}
+                options={[{ value: '', label: 'Todos los responsables' }, UNASSIGNED_FILTER_OPTION, ...lawyerOptions]}
                 value={responsibleLawyerId}
                 onChange={(e) => onResponsibleLawyerChange(e.target.value)}
             />

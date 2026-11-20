@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { renderWithProviders, waitForSession } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
+import { orphanCase } from '../../setup/orphan'
 import { server } from '@/shared/mocks/server'
 import { errorBody } from '@/shared/mocks'
 import { saveFile } from '@/shared/lib/saveFile'
@@ -67,6 +68,29 @@ describe('ReportsPage', () => {
         }
         // Decisión del 14/11/2026: los estados procesales no se dibujan.
         expect(screen.queryByText('Causas por estado procesal')).not.toBeInTheDocument()
+    })
+
+    /* D-145: las causas huérfanas son el renglón "Sin asignar" de la carga por
+       abogado, sin la línea del promedio. Sin huérfanas no se dibuja. El mock
+       no trae ninguna: el test deja huérfana la causa 1, penal. */
+    it('la carga por abogado suma el renglón "Sin asignar" con las causas huérfanas', async () => {
+        orphanCase(1)
+        renderPage()
+
+        const title = await screen.findByText('Carga por abogado responsable', { selector: '.vz-panel__title' })
+        const panel = title.closest('.vz-panel') as HTMLElement
+        const row = (await within(panel).findByText('Sin asignar')).closest('li') as HTMLElement
+        expect(within(row).getByRole('img', { name: 'Sin asignar: Penal 1 · Administrativo 0 · Amparo 0' })).toBeInTheDocument()
+        expect(row.querySelector('.vz-report-load__avg')).toBeNull()
+    })
+
+    it('sin causas huérfanas no hay renglón "Sin asignar"', async () => {
+        renderPage()
+
+        const title = await screen.findByText('Carga por abogado responsable', { selector: '.vz-panel__title' })
+        const panel = title.closest('.vz-panel') as HTMLElement
+        await within(panel).findAllByRole('img')
+        expect(within(panel).queryByText('Sin asignar')).not.toBeInTheDocument()
     })
 
     // Cada barra lleva su cantidad y debajo va el detalle del mes resaltado.

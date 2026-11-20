@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { useCan } from '@/app/access/useCan'
 import { useCurrentUser } from '@/app/providers/AuthContext'
 import { useToast } from '@/app/providers/ToastContext'
 import { useGoBack } from '@/app/router/useGoBack'
@@ -14,7 +15,8 @@ import {
     CaseHeader,
     CaseHeaderSkeleton,
     CasePrescriptionBar,
-    isResponsibleLawyer,
+    canActOnCase,
+    casesListPath,
     NO_SAC_LABEL,
     useCase,
     type Case,
@@ -86,7 +88,8 @@ export function RegisterProceduralActPage() {
     const c = caseQuery.data
     usePageTitle(c ? `${title} · ${c.caption}` : title)
     const crumbs: BreadcrumbItem[] = [
-        { label: 'Causas', onClick: () => navigate('/causas') },
+        // Al último listado, con sus filtros (`casesListPath`).
+        { label: 'Causas', onClick: () => navigate(casesListPath()) },
         ...(c ? [{ label: c.sacNumber ?? NO_SAC_LABEL, onClick: () => navigate(`/causas/${c.id}`) }] : []),
         { label: title },
     ]
@@ -141,6 +144,8 @@ export function RegisterProceduralActPage() {
 function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralAct }) {
     const toast = useToast()
     const { lawyer } = useCurrentUser()
+    /* En una causa huérfana los actos son del Administrador (D-143). */
+    const actOnOrphanCase = useCan('cases.actOnOrphanCase')
     const { jurisdiction } = c
 
     const [values, setValues] = useState<ProceduralActFormValues>(() => act ? toActFormValues(act) : {
@@ -277,11 +282,14 @@ function RegisterProceduralAct({ case: c, act }: { case: Case; act?: ProceduralA
     /* ---------------- pantalla ---------------- */
 
     let content: ReactNode
-    if (!isResponsibleLawyer(c, lawyer?.id ?? null)) {
+    if (!canActOnCase(c, lawyer?.id ?? null, actOnOrphanCase)) {
+        const who = c.responsibleLawyer === null ? 'el Administrador' : 'el abogado responsable'
         content = (
             <Empty
-                title={act ? 'Solo el abogado responsable modifica actos procesales' : 'Solo el abogado responsable registra actos procesales'}
-                text={`El responsable de esta causa es ${formatPersonFullName(c.responsibleLawyer)}.`}
+                title={act ? `Solo ${who} modifica actos procesales` : `Solo ${who} registra actos procesales`}
+                text={c.responsibleLawyer === null
+                    ? 'Esta causa no tiene abogado responsable: sus actos los registra el Administrador.'
+                    : `El responsable de esta causa es ${formatPersonFullName(c.responsibleLawyer)}.`}
                 action={<Button variant="secondary" size="md" onClick={backToCase}>Volver a la causa</Button>}
             />
         )

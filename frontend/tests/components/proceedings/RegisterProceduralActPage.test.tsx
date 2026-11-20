@@ -7,6 +7,7 @@ import { CaseDetailPage } from '@/features/cases/pages/CaseDetailPage'
 import { RegisterProceduralActPage } from '@/features/proceedings/pages/RegisterProceduralActPage'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
+import { orphanCase } from '../../setup/orphan'
 
 /**
  * Las causas semilla que usa: la 1 (penal, GÓMEZ) y la 9 (archivada), de
@@ -153,6 +154,25 @@ describe('RegisterProceduralActPage', () => {
         expect(await screen.findByText('El estado procesal no pertenece al fuero de la causa o es terminal.'))
             .toBeInTheDocument()
         expect(screen.queryByText('Detalle de la causa')).not.toBeInTheDocument()
+    })
+
+    /* D-143: en una causa huérfana los actos son del Administrador, aunque no
+       tenga ficha de abogado. Ningún abogado, ni el que la llevaba. */
+    it('en una causa huérfana, el Administrador ve el formulario', async () => {
+        orphanCase(1)
+        renderPage(1, 'supervision')
+
+        expect(await screen.findByRole('combobox')).toBeInTheDocument()
+        expect(screen.queryByText(/^Solo (el|la) .* registra actos procesales/)).not.toBeInTheDocument()
+    })
+
+    it('en una causa huérfana, ni el abogado que la llevaba registra actos', async () => {
+        orphanCase(1)
+        renderPage(1, 'mrios')
+
+        expect(await screen.findByText('Solo el Administrador registra actos procesales')).toBeInTheDocument()
+        expect(screen.getByText('Esta causa no tiene abogado responsable: sus actos los registra el Administrador.')).toBeInTheDocument()
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     })
 
     it.each([

@@ -6,16 +6,35 @@ additionalProperties: false
 properties:
   reassignments:
     type: array
+    description: |
+      Cada entrada lleva `responsibleLawyerId` o, (D-143), `unassigned: true`:
+      nunca las dos ni ninguna (`400 VALIDATION_ERROR` con
+      `details.reassignments`).
     items:
-      type: object
-      additionalProperties: false
-      required:
-        - caseId
-        - responsibleLawyerId
-      properties:
-        caseId:
-          type: integer
-          description: Una causa activa del abogado que se da de baja.
-        responsibleLawyerId:
-          type: integer
-          description: Abogado vigente, distinto del que se da de baja, que pasa a ser su responsable.
+      oneOf:
+        - type: object
+          title: Pasa a otro abogado
+          additionalProperties: false
+          required:
+            - caseId
+            - responsibleLawyerId
+          properties:
+            caseId:
+              type: integer
+              description: Una causa activa del abogado que se da de baja.
+            responsibleLawyerId:
+              type: integer
+              description: Abogado vigente, distinto del que se da de baja, que pasa a ser su responsable.
+        - type: object
+          title: Queda sin responsable (D-143)
+          additionalProperties: false
+          required:
+            - caseId
+            - unassigned
+          properties:
+            caseId:
+              type: integer
+              description: Una causa activa del abogado que se da de baja.
+            unassigned:
+              const: true
+              description: La causa queda huérfana, sin abogado responsable.

@@ -2,7 +2,7 @@ import { useId, type ReactNode } from 'react'
 import { Button, LoadError, LoadingState, Panel, Pill } from '@/shared/components/ui'
 import { TimelineSkeleton } from '@/features/cases/components/CaseSkeletons'
 import { formatDate, formatDateTime } from '@/shared/lib/dates'
-import { formatPersonFullName } from '@/shared/lib/personName'
+import { formatPersonFullName, formatPersonName } from '@/shared/lib/personName'
 import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
 import type {
     TimelineEntry,
@@ -10,7 +10,9 @@ import type {
     TimelinePrescriptionEntry,
     TimelineQualificationPrescriptionEntry,
     TimelineProceduralActEntry,
+    TimelineResponsibleLawyerChangeEntry,
 } from '@/features/cases/types/timeline'
+import { UNASSIGNED_LABEL } from '@/features/cases/utils/responsibleLawyer'
 import { actDeadlineBadge, actTermDays, actTermText, closedDeadlineText } from '@/features/cases/utils/timeline'
 
 export interface CaseTimelineProps {
@@ -57,6 +59,9 @@ export interface CaseTimelineProps {
  * Cada acto procesal lleva "Modificar" (HU28) y "Anular" (HU29). Un acto
  * anulado no vuelve en la respuesta: desaparece de la lista (D-124), no queda
  * "asentado como anulado" como dice el prototipo.
+ *
+ * Desde D-147 también trae los cambios de abogado responsable, que el
+ * prototipo no dibuja (`cases/CAMBIOS.md`).
  */
 export function CaseTimeline({
     entries, loading, error, onRetry, retrying, canRegisterAct, registerNoteId, onRegisterAct, canModifyActs, onModifyAct,
@@ -73,9 +78,11 @@ export function CaseTimeline({
         )
     } else if (error != null) {
         body = <LoadError title="No se pudo cargar el ciclo de vida" error={error} onRetry={onRetry} retrying={retrying} />
-    } else if (!entries || entries.length === 0) {
-        // La causa está en "Iniciada": no es un error (CA-27.14).
+    } else if (!entries || !entries.some((entry) => entry.type !== 'RESPONSIBLE_LAWYER_CHANGE')) {
+        /* La causa está en "Iniciada": no es un error (CA-27.14). Puede tener
+           cambios de responsable (D-147), que van debajo: no son actos. */
         body = (
+            <>
             <div className="vz-timeline__empty">
                 <div className="vz-timeline__empty-title">Todavía no hay actos procesales</div>
                 <p className="vz-timeline__empty-text">
@@ -90,6 +97,14 @@ export function CaseTimeline({
                     Registrar el primer acto
                 </Button>
             </div>
+            {entries && entries.length > 0 && (
+                <ol className="vz-timeline">
+                    {entries.map((entry) => (
+                        <TimelineItem key={entryKey(entry)} entry={entry} actActions={undefined} modifyNoteId={undefined} />
+                    ))}
+                </ol>
+            )}
+            </>
         )
     } else {
         body = (
@@ -126,6 +141,7 @@ function entryKey(entry: TimelineEntry): string {
         case 'INTERRUPTIVE_ACT': return `interruptive-${entry.interruptiveAct.id}`
         case 'QUALIFICATION_PRESCRIPTION_DECLARATION': return `qualification-prescription-${entry.legalQualification.id}`
         case 'PRESCRIPTION_DECLARATION': return 'prescription'
+        case 'RESPONSIBLE_LAWYER_CHANGE': return `responsible-${entry.responsibleLawyerChange.id}`
     }
 }
 
@@ -147,6 +163,7 @@ function TimelineItem({ entry, actActions, modifyNoteId }: {
         case 'INTERRUPTIVE_ACT': return <InterruptiveActItem entry={entry} />
         case 'QUALIFICATION_PRESCRIPTION_DECLARATION': return <QualificationPrescriptionItem entry={entry} />
         case 'PRESCRIPTION_DECLARATION': return <PrescriptionItem entry={entry} />
+        case 'RESPONSIBLE_LAWYER_CHANGE': return <ResponsibleLawyerChangeItem entry={entry} />
     }
 }
 
@@ -275,6 +292,37 @@ function PrescriptionItem({ entry }: { entry: TimelinePrescriptionEntry }) {
             </div>
             <Notes text={d.grounds} />
             <RegisteredBy person={d.registeredBy} at={d.registeredAt} />
+        </Item>
+    )
+}
+
+const RESPONSIBLE_CHANGE_TITLES: Record<TimelineResponsibleLawyerChangeEntry['responsibleLawyerChange']['kind'], string> = {
+    REASSIGNED: 'Cambio de abogado responsable',
+    ORPHANED: 'Quedó sin abogado responsable',
+    ASSIGNED_FROM_ORPHAN: 'Se le asignó abogado responsable',
+}
+
+/**
+ * Un cambio de abogado responsable (D-147): de quién a quién, y si lo hizo
+ * la baja de un abogado. No mueve el estado procesal. Los abogados se
+ * muestran como son hoy, aunque estén dados de baja; sin abogado, "Sin
+ * asignar" (D-143).
+ */
+function ResponsibleLawyerChangeItem({ entry }: { entry: TimelineResponsibleLawyerChangeEntry }) {
+    const change = entry.responsibleLawyerChange
+    const name = (person: { lastName: string; firstName: string } | null) =>
+        person === null ? UNASSIGNED_LABEL : formatPersonName(person)
+    return (
+        <Item title={RESPONSIBLE_CHANGE_TITLES[change.kind]} date={entry.date} modifier={null}>
+            <div className="vz-timeline__sub">
+                De {name(change.previousLawyer)} a {name(change.newLawyer)}. No modifica el estado procesal.
+            </div>
+            {change.origin === 'LAWYER_REMOVAL' && (
+                <div className="vz-timeline__tags">
+                    <Pill>Por la baja de un abogado</Pill>
+                </div>
+            )}
+            <RegisteredBy person={change.changedBy} at={change.changedAt} />
         </Item>
     )
 }

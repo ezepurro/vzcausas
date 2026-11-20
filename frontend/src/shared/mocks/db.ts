@@ -123,7 +123,10 @@ export interface StoredCase {
     administrativeRemedyExhaustedOn: string | null;
     courtFeePaid: boolean;
     clientId: number;
-    responsibleLawyerId: number;
+    /** `null` en una causa huérfana: quedó sin responsable al dar de baja a su abogado (D-143). */
+    responsibleLawyerId: number | null;
+    /** ISO 8601: desde cuándo es huérfana. `null` si tiene responsable. */
+    orphanedAt: string | null;
     qualifications: StoredCaseQualification[];
     /** `null` mientras la causa no tiene SAC (D-38). */
     startDate: string | null;
@@ -234,6 +237,24 @@ export interface StoredAct {
     annulment: { reason: string | null; byId: number; at: string } | null;
 }
 
+/**
+ * Un cambio de abogado responsable (D-147): una reasignación con `PATCH
+ * /cases/{caseId}`, el reparto de la baja de un abogado o la causa que esa
+ * baja deja huérfana. Solo hacia adelante: no hay historia anterior.
+ */
+export interface StoredResponsibleChange {
+    id: number;
+    caseId: number;
+    /** `null` si la causa era huérfana. */
+    previousLawyerId: number | null;
+    /** `null` si la causa queda huérfana. */
+    newLawyerId: number | null;
+    origin: 'LAWYER_REMOVAL' | 'MANUAL';
+    /** El usuario que hizo el cambio. */
+    changedById: number;
+    changedAt: string;
+}
+
 export interface MockDb {
     /** Guardan `lawyerId`; el objeto `lawyer` se arma al serializar. */
     users: StoredUser[];
@@ -245,6 +266,8 @@ export interface MockDb {
     cases: StoredCase[];
     proceduralActs: StoredAct[];
     interruptiveActs: StoredInterruptiveAct[];
+    /** Los cambios de responsable, para la línea de vida (D-147). */
+    responsibleChanges: StoredResponsibleChange[];
     documentTemplates: StoredDocumentTemplate[];
     /** Lo que hay en las carpetas de las causas en Drive (V5 §3.12). */
     documents: StoredDocument[];
@@ -442,20 +465,28 @@ function driveFolderName(name: string): string {
  * Dónde queda la carpeta: `/VZ Causas/Causas/{abogado}/{fuero}/{carátula}`
  * (V5 §4, "Carpeta de la causa"), con el abogado responsable como
  * `Apellido, Nombres`, el rótulo del fuero y la carátula. Sigue al responsable
- * y a la carátula vigentes (D-104).
+ * y a la carátula vigentes (D-104). Una causa huérfana va en `Sin asignar`
+ * (D-143): `lawyer` en `null`.
  */
 export function folderPath(input: {
-    lawyer: Pick<Lawyer, 'lastName' | 'firstName'>;
+    lawyer: Pick<Lawyer, 'lastName' | 'firstName'> | null;
     jurisdiction: Jurisdiction;
     caption: string;
 }): string {
-    const lawyer = driveFolderName(`${input.lawyer.lastName}, ${input.lawyer.firstName}`);
+    const lawyer = input.lawyer === null
+        ? UNASSIGNED_FOLDER
+        : driveFolderName(`${input.lawyer.lastName}, ${input.lawyer.firstName}`);
     return `/VZ Causas/Causas/${lawyer}/${JURISDICTION_LABEL[input.jurisdiction]}/${driveFolderName(input.caption)}`;
 }
 
+/** El nivel del abogado de la carpeta de una causa huérfana (V6 §4, "Causa huérfana"). */
+export const UNASSIGNED_FOLDER = 'Sin asignar';
+
 /** Dónde tendría que estar hoy la carpeta de la causa, con su responsable y su carátula vigentes. */
 export function expectedFolderPath(stored: Pick<StoredCase, 'responsibleLawyerId' | 'jurisdiction' | 'caption'>): string {
-    const lawyer = db.lawyers.find((l) => l.id === stored.responsibleLawyerId) ?? { lastName: '', firstName: '' };
+    const lawyer = stored.responsibleLawyerId === null
+        ? null
+        : db.lawyers.find((l) => l.id === stored.responsibleLawyerId) ?? { lastName: '', firstName: '' };
     return folderPath({ lawyer, jurisdiction: stored.jurisdiction, caption: stored.caption });
 }
 
@@ -618,6 +649,9 @@ function initialState(): MockDb {
             courtFeePaid: seed.courtFeePaid ?? false,
             clientId: seed.clientId,
             responsibleLawyerId: seed.responsibleLawyerId,
+            /* Ninguna semilla es huérfana (D-143): se llega dando de baja a un
+               abogado. Los tests que necesitan una la arman sobre la base. */
+            orphanedAt: null,
             qualifications: (seed.qualifications ?? []).map((q) => ({ ...q })),
             // Sin SAC no hay fecha de inicio en sede judicial (D-38).
             startDate: seed.sacNumber === null ? null : resolveSeedDate(seed.startDate, today),
@@ -696,6 +730,8 @@ function initialState(): MockDb {
         cases,
         proceduralActs,
         interruptiveActs,
+        // Los cambios de responsable son sólo hacia adelante (D-147): la semilla no trae.
+        responsibleChanges: [],
         documentTemplates,
         documents,
         caseFileVersions,
@@ -1237,8 +1273,9 @@ function currentStateOf(caseId: number): CurrentState {
 
 /** La causa tal como la define el contrato, con todo lo embebido y lo calculado. */
 export function toCase(stored: StoredCase): Case {
+    // `null` en una causa huérfana (D-143); si no, el abogado tiene que existir.
     const lawyer = embedLawyer(stored.responsibleLawyerId);
-    if (!lawyer) {
+    if (stored.responsibleLawyerId !== null && !lawyer) {
         throw new Error(`[mock] La causa ${stored.id} apunta al abogado ${stored.responsibleLawyerId}, que no existe.`);
     }
 
@@ -1269,6 +1306,7 @@ export function toCase(stored: StoredCase): Case {
         courtFeePaid: stored.courtFeePaid,
         client: embedClient(stored.clientId),
         responsibleLawyer: lawyer,
+        orphanedAt: stored.orphanedAt,
         legalQualifications,
         prescription: prescriptionOf(stored, legalQualifications),
         prescriptionDeclaration: stored.prescriptionDeclaration

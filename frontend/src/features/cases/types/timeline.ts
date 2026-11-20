@@ -44,8 +44,44 @@ export interface TimelinePrescriptionEntry {
     prescriptionDeclaration: PrescriptionDeclaration
 }
 
+type PersonRef = { id: number; lastName: string; firstName: string }
+
+/**
+ * Un cambio de abogado responsable (D-147, V6 §3.7, "Cambio de responsable en
+ * la línea de vida"): una reasignación, el reparto de la baja de un abogado o
+ * la causa que esa baja deja huérfana. Solo hacia adelante: los cambios
+ * anteriores a esa revisión no aparecen.
+ */
+export interface ResponsibleLawyerChange {
+    id: number
+    caseId: number
+    /**
+     * `REASSIGNED`: de un abogado a otro. `ORPHANED`: quedó sin abogado
+     * (D-143). `ASSIGNED_FROM_ORPHAN`: una causa huérfana recibió abogado.
+     */
+    kind: 'REASSIGNED' | 'ORPHANED' | 'ASSIGNED_FROM_ORPHAN'
+    /** Como es hoy, aunque esté dado de baja. `null` en `ASSIGNED_FROM_ORPHAN`. */
+    previousLawyer: PersonRef | null
+    /** `null` en `ORPHANED`. */
+    newLawyer: PersonRef | null
+    /** `LAWYER_REMOVAL`: la baja de un abogado. `MANUAL`: un `PATCH /cases/{caseId}`. */
+    origin: 'LAWYER_REMOVAL' | 'MANUAL'
+    /** El usuario que hizo el cambio: no necesariamente un abogado. */
+    changedBy: PersonRef
+    /** ISO 8601, con el huso del estudio. */
+    changedAt: string
+}
+
+export interface TimelineResponsibleLawyerChangeEntry {
+    type: 'RESPONSIBLE_LAWYER_CHANGE'
+    /** La fecha de `changedAt`, en Córdoba. */
+    date: string
+    responsibleLawyerChange: ResponsibleLawyerChange
+}
+
 export type TimelineEntry =
     | TimelineProceduralActEntry
     | TimelineInterruptiveActEntry
     | TimelineQualificationPrescriptionEntry
     | TimelinePrescriptionEntry
+    | TimelineResponsibleLawyerChangeEntry

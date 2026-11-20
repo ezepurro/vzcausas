@@ -1,8 +1,8 @@
 import { Button, Icon, Panel, Pill, type PillTone } from '@/shared/components/ui'
-import { formatPersonFullName, formatPersonName } from '@/shared/lib/personName'
 import { JURISDICTION_LABELS } from '@/features/legal-params'
 import type { Case, CaseFolderStatus } from '@/features/cases/types/case'
 import { copiedTemplatesText } from '@/features/cases/utils/caseFolder'
+import { caseActors, responsibleLabel } from '@/features/cases/utils/responsibleLawyer'
 
 export interface CaseFolderCardProps {
     case: Case
@@ -105,7 +105,7 @@ export function CaseFolderCard({ case: c, creating, error, canCreate, onCreate }
                         </div>
                         <div className="vz-case-folder__where">
                             {whereLabel && <span className="vz-case-folder__where-label">{whereLabel} </span>}
-                            {formatPersonName(c.responsibleLawyer)}
+                            {responsibleLabel(c)}
                             <span className="vz-case-folder__sep" aria-hidden="true">›</span>
                             {JURISDICTION_LABELS[c.jurisdiction]}
                         </div>
@@ -145,7 +145,7 @@ export function CaseFolderCard({ case: c, creating, error, canCreate, onCreate }
                     <Button
                         title={canCreate
                             ? undefined
-                            : `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)}) crea o reintenta la carpeta.`}
+                            : `${caseActors(c).operate} crea o reintenta la carpeta.`}
                         size="sm"
                         block
                         variant={view === 'ERROR' ? 'secondary' : 'primary'}

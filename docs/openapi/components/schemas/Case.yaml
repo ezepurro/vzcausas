@@ -44,6 +44,7 @@ required:
   - courtFeePaid
   - client
   - responsibleLawyer
+  - orphanedAt
   - legalQualifications
   - prescription
   - prescriptionDeclaration
@@ -221,7 +222,20 @@ properties:
   client:
     $ref: ./ClientSummary.yaml
   responsibleLawyer:
-    $ref: ./LawyerSummary.yaml
+    description: |
+      Abogado responsable (RN3). (D-143) `null` en una causa huérfana: quedó
+      sin responsable al dar de baja a su abogado.
+    oneOf:
+      - $ref: ./LawyerSummary.yaml
+      - type: 'null'
+  orphanedAt:
+    type:
+      - string
+      - 'null'
+    format: date-time
+    description: |
+      (D-143) Desde cuándo la causa no tiene abogado responsable. `null` si lo
+      tiene.
   legalQualifications:
     type: array
     description: |

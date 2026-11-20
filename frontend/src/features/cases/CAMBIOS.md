@@ -5,6 +5,78 @@ contrato.
 
 ---
 
+## 2026-11-19 — Los filtros del listado se conservan
+
+**Pedido:** Luciano Cipolla. Elegir un filtro, entrar a una causa y volver
+obligaba a elegirlo de nuevo: los filtros vivían en el estado de
+`CasesPage`, que se pierde al salir de la pantalla.
+
+**Ahora:** la búsqueda, el fuero, el responsable, el estado, "Solo con plazo
+por vencer" y la página van en la URL
+(`/causas?responsable=3&fuero=CRIMINAL&pagina=2`), con
+`hooks/useCaseFilters.ts`, el molde de `dashboard/hooks/useDashboardFilters`.
+Sobreviven a la flecha del detalle, al atrás del navegador y a recargar. Un
+valor que no se entiende se ignora. Escribe con `replace`: tocar un filtro no
+suma una entrada al historial. Las reglas de siempre siguen: cada cambio
+vuelve a la página 1, y "Limpiar filtros" deja el buscador como está.
+
+**Cómo vuelve cada camino** (decisión de Luciano Cipolla):
+
+| Desde | Al listado |
+|---|---|
+| Flecha del detalle, atrás del navegador | Con los filtros |
+| Miga "Causas" del detalle, de "Registrar acto procesal" y de "Generar expediente"; y al dar de baja la causa | Con los filtros: el último listado de la pestaña (`utils/casesListPath.ts`, en `sessionStorage`) |
+| "Causas" del menú lateral | Limpio, para empezar de cero (como Inicio, CA-41.7) |
+
+Tests: `components/cases/CasesPage.test.tsx` ("filtros que se conservan") y
+`unit/cases/casesListPath.test.ts`.
+
+## 2026-11-19 — Causa huérfana (D-143) y cambio de responsable en la línea de vida (D-147)
+
+Revisión de V6 del 16/11/2026 y del 17/11/2026 (`feat/orphan-cases` del
+backend). Una causa **huérfana** quedó sin abogado responsable al dar de baja
+a su abogado (V6 §4, "Causa huérfana"): `responsibleLawyer` en `null` y
+`orphanedAt`. El contrato fija los datos y los permisos; la pantalla no está
+en el prototipo, y esto es lo que se decidió (Luciano Cipolla):
+
+- **"Sin asignar"** donde va el nombre del responsable: encabezado, tabla y
+  tarjeta de la carpeta (`responsibleLabel`, `UNASSIGNED_LABEL`).
+- **Aviso en el detalle**, arriba de la barra de prescripción: "Esta causa no
+  tiene abogado responsable desde el …. Sus plazos y su prescripción siguen
+  corriendo.", con "Asignar responsable" para quien la opera (abre
+  "Modificar causa").
+- **Quién la opera** (V6 §4): la modifican, la reasignan y la dan de baja el
+  Administrador y la Secretaría (`caseOperation`, sin cambios). **Sus actos,
+  procesales e interruptivos, sólo el Administrador**, aunque no tenga ficha
+  de abogado: acción `cases.actOnOrphanCase` en `ACTION_ACCESS`, combinada en
+  `canActOnCase`. Ningún abogado, ni el que la llevaba. Es la única excepción
+  a D-30. Las notas de los botones deshabilitados lo dicen (`caseActors`):
+  "En una causa sin responsable, solo el Administrador registra actos.".
+- **"Modificar causa"** de una huérfana arranca con el responsable vacío y la
+  opción "Seleccionar responsable…" (sólo ahí: sin ella el navegador
+  mostraba elegido al primer abogado). Si se cambia otro dato, pide elegir
+  uno: `PATCH` con `responsibleLawyerId: null` es `400`. Sin tocar nada,
+  cierra sin validar, como siempre (CA-19.2).
+- **Filtro "Sin asignar"** en "Todos los responsables" del listado: manda
+  `unassigned=true` (`utils/responsibleFilter.ts`). Como sale del mismo
+  select, nunca viaja junto con `responsibleLawyerId`, que daría `400`.
+- **Línea de vida (D-147):** cada cambio de responsable es una entrada
+  `RESPONSIBLE_LAWYER_CHANGE`: "Cambio de abogado responsable", "Quedó sin
+  abogado responsable" o "Se le asignó abogado responsable", con "De … a …",
+  la etiqueta "Por la baja de un abogado" si vino de ahí, y quién lo hizo.
+  No mueve el estado. En una causa sin actos sigue "Registrar el primer
+  acto", con los cambios debajo.
+
+**Fuera de alcance:** los tableros no cuentan las huérfanas (C-49, abierto):
+el mock las deja afuera, como el backend.
+
+Tests: `components/cases/CaseDetailPage.orphan.test.tsx`,
+`components/cases/CaseDetailPage.responsibleChange.test.tsx`, el filtro en
+`components/cases/CasesPage.test.tsx` y la huérfana en
+`components/proceedings/RegisterProceduralActPage.test.tsx`. El mock no trae
+huérfanas entre sus semillas: cada test la arma con `orphanCase`
+(`tests/setup/orphan.ts`).
+
 ## 2026-11-16 — Expediente y carpeta en segundo plano
 
 **Pedido:** devolución de los profesores: mejorar la espera de lo que tarda.

@@ -4,6 +4,10 @@
  * Funciones puras: el estado es "a quién va cada causa", con `null` mientras
  * está sin asignar. El formulario del prototipo ("Sin asignar" / "Pasan a")
  * se dibuja a partir de esto, y el cuerpo del `DELETE` también.
+ *
+ * Una causa que se confirma sin asignar queda huérfana, sin responsable
+ * (D-143): viaja con `unassigned: true`. El formulario lo avisa y pide
+ * confirmar antes de enviar (`lawyers/CAMBIOS.md`).
  */
 
 import type { DeleteLawyerBody } from '@/features/lawyers/types/lawyerDeletion'
@@ -39,7 +43,7 @@ export function unassign(current: Reassignment, caseIds: readonly number[]): Rea
     return next
 }
 
-/** Las causas que todavía no tienen abogado. */
+/** Las causas que todavía no tienen abogado: si se confirma así, quedan huérfanas (D-143). */
 export function pendingCaseIds(current: Reassignment): number[] {
     return Object.entries(current)
         .filter(([, lawyerId]) => lawyerId === null)
@@ -53,27 +57,29 @@ export function caseIdsFor(current: Reassignment, lawyerId: number): number[] {
         .map(([id]) => Number(id))
 }
 
-/** `true` si todas las causas tienen abogado: recién ahí se puede confirmar. */
+/** `true` si todas las causas tienen abogado: ninguna queda huérfana. */
 export function isComplete(current: Reassignment): boolean {
     return pendingCaseIds(current).length === 0
 }
 
 /**
- * El cuerpo del `DELETE`: una entrada por causa activa. Sin causas activas no
- * hay cuerpo (V6 L1769: "puede omitirse").
+ * El cuerpo del `DELETE`: una entrada por causa activa, con el abogado o,
+ * si quedó sin asignar, con `unassigned: true` (D-143). Nunca las dos. Sin
+ * causas activas no hay cuerpo (V6 L1769: "puede omitirse").
  */
 export function toDeleteLawyerBody(current: Reassignment): DeleteLawyerBody | undefined {
     const entries = Object.entries(current)
     if (entries.length === 0) return undefined
     return {
-        reassignments: entries.map(([caseId, lawyerId]) => ({
-            caseId: Number(caseId),
-            responsibleLawyerId: lawyerId as number,
-        })),
+        reassignments: entries.map(([caseId, lawyerId]) =>
+            lawyerId === null
+                ? { caseId: Number(caseId), unassigned: true as const }
+                : { caseId: Number(caseId), responsibleLawyerId: lawyerId },
+        ),
     }
 }
 
-/** Para el aviso de éxito: "Peralta (2), Bustos (1)". */
+/** Para el aviso de éxito: "Peralta (2), Bustos (1)". Las sin asignar no cuentan acá. */
 export function countByLawyer(current: Reassignment): Map<number, number> {
     const counts = new Map<number, number>()
     for (const lawyerId of Object.values(current)) {

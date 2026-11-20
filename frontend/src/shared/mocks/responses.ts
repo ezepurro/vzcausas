@@ -620,6 +620,7 @@ const EXAMPLE_CASE: Case = {
         clientSince: '2021-03-12',
     },
     responsibleLawyer: { id: 3, lastName: 'Ríos', firstName: 'Malena', registrationNumber: '1-36842' },
+    orphanedAt: null,
     legalQualifications: [
         {
             id: 1,

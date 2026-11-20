@@ -376,7 +376,10 @@ export interface Case {
     /** Tasa de justicia pagada (RN10). En los tres fueros. */
     courtFeePaid: boolean;
     client: CaseClient;
-    responsibleLawyer: EmbeddedLawyer;
+    /** `null` en una causa huérfana, sin responsable (V6 §4, D-143). */
+    responsibleLawyer: EmbeddedLawyer | null;
+    /** ISO 8601: desde cuándo es huérfana. `null` si tiene responsable (D-143). */
+    orphanedAt: string | null;
     /** Opcional en el penal (D-33); vacío en los demás fueros. */
     legalQualifications: CaseLegalQualification[];
     /** `null` fuera del penal y en una causa penal sin calificaciones (V4). */
@@ -522,7 +525,30 @@ export type TimelineEntry =
           /** La `prescriptionDate` de la declaración. */
           date: string;
           prescriptionDeclaration: PrescriptionDeclaration;
+      }
+    | {
+          /** Un cambio de abogado responsable (D-147). */
+          type: 'RESPONSIBLE_LAWYER_CHANGE';
+          /** La fecha de `changedAt`, en Córdoba. */
+          date: string;
+          responsibleLawyerChange: ResponsibleLawyerChange;
       };
+
+/** Un cambio de abogado responsable en la línea de vida (D-147). */
+export interface ResponsibleLawyerChange {
+    id: number;
+    caseId: number;
+    /** `REASSIGNED`: de un abogado a otro. `ORPHANED`: quedó sin abogado. `ASSIGNED_FROM_ORPHAN`: una huérfana recibió abogado. */
+    kind: 'REASSIGNED' | 'ORPHANED' | 'ASSIGNED_FROM_ORPHAN';
+    /** `null` en `ASSIGNED_FROM_ORPHAN`. */
+    previousLawyer: PersonRef | null;
+    /** `null` en `ORPHANED`. */
+    newLawyer: PersonRef | null;
+    origin: 'LAWYER_REMOVAL' | 'MANUAL';
+    /** El usuario que hizo el cambio: no necesariamente un abogado. */
+    changedBy: PersonRef;
+    changedAt: string;
+}
 
 /** Modelo formal (V4 §3.10, HU34 y HU35). */
 export interface DocumentTemplate {
@@ -655,6 +681,8 @@ export interface MonthlyReport {
         total: number;
         differenceFromAverage: number;
     }[];
+    /** Las causas huérfanas activas al cierre (D-145). Siempre viene, con ceros si no hay. */
+    unassigned: { criminal: number; administrative: number; amparo: number; total: number };
     monthly: {
         period: string;
         admitted: number | null;
@@ -680,7 +708,8 @@ export interface MonthlyReport {
             caseId: number;
             sacNumber: string | null;
             caption: string;
-            responsibleLawyer: PersonRef;
+            /** `null` en una causa huérfana (D-145). */
+            responsibleLawyer: PersonRef | null;
             legalQualificationName: string;
             elapsedPercentage: number;
             expired: boolean;
@@ -938,7 +967,10 @@ export type ClientsQuery = PaginatedQuery;
  */
 export interface CasesQuery extends PaginatedQuery {
     jurisdiction?: Jurisdiction;
+    /** Excluyente con `unassigned`. */
     responsibleLawyerId?: number;
+    /** Sólo las causas huérfanas (D-143). Excluyente con `responsibleLawyerId`. */
+    unassigned?: boolean;
     proceduralStateId?: number;
     customState?: string;
     withoutProceduralActs?: boolean;

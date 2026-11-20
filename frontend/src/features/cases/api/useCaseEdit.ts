@@ -69,13 +69,16 @@ export function useCaseEdit(c: Case) {
     /* Si quien modifica es abogado, su ficha va primero, con "(asignarme a mí)"
        (`buildLawyerOptions`). El responsable de la causa se ofrece siempre,
        aunque el listado no lo traiga: la causa lo tiene, y el select no puede
-       quedar sin la opción elegida. Va después de la ficha propia. */
+       quedar sin la opción elegida. Va después de la ficha propia. Una causa
+       huérfana no tiene responsable (D-143): el select arranca vacío y hay
+       que elegir uno, porque `responsibleLawyerId` no admite `null`. */
     const lawyerOptions = buildLawyerOptions(lawyers, myLawyer?.id ?? null)
-    if (!lawyers.some((item) => item.id === c.responsibleLawyer.id)) {
+    const current = c.responsibleLawyer
+    if (current !== null && !lawyers.some((item) => item.id === current.id)) {
         const mineFirst = lawyerOptions[0]?.value === String(myLawyer?.id)
         lawyerOptions.splice(mineFirst ? 1 : 0, 0, {
-            value: String(c.responsibleLawyer.id),
-            label: lawyerLabel(c.responsibleLawyer),
+            value: String(current.id),
+            label: lawyerLabel(current),
         })
     }
 

@@ -12,6 +12,10 @@ import { LawyersPage } from '@/features/lawyers/pages/LawyersPage'
  * salen del formulario "Eliminar abogado" del prototipo: "Tiene N causas
  * activas…", "Sin asignar", "Pasan a" y "Eliminar y reasignar".
  *
+ * Desde D-143 no hace falta asignarlas todas: las que se confirman sin
+ * asignar quedan huérfanas, sin responsable. Antes de enviar se avisa, se
+ * listan y se pide confirmar (`lawyers/CAMBIOS.md`).
+ *
  * Peralta (4) tiene dos causas activas (2 y 11), una terminal (21) y el
  * usuario `iperalta`, que solo es Abogado. Zárate (2) tiene un usuario que
  * además es Administrador. Campos (9) no tiene causas ni usuario.
@@ -70,16 +74,17 @@ describe('LawyersPage · eliminar abogado', () => {
     })
 
     // CA-15.2: lista solo las activas; las terminales no se reparten.
-    it('lista solo sus causas activas y no deja confirmar hasta asignarlas todas', async () => {
+    it('lista solo sus causas activas y deja confirmar aunque queden sin asignar', async () => {
         const { user } = renderPage()
         const dialog = await openDelete(user, PERALTA)
 
-        expect(await within(dialog).findByText('Tiene 2 causas activas. Asigná cada una a otro abogado antes de eliminarlo.')).toBeInTheDocument()
+        expect(await within(dialog).findByText('Tiene 2 causas activas. Las que no asignes quedan sin responsable.')).toBeInTheDocument()
         expect(within(dialog).getByText('Sin asignar · 2 de 2')).toBeInTheDocument()
         expect(within(dialog).getByText(caption(2))).toBeInTheDocument()
         expect(within(dialog).getByText(caption(11))).toBeInTheDocument()
         expect(within(dialog).queryByText(caption(21))).not.toBeInTheDocument()
-        expect(within(dialog).getByRole('button', { name: 'Eliminar y reasignar' })).toBeDisabled()
+        // D-143: sin asignar no bloquea; lo frena la confirmación.
+        expect(within(dialog).getByRole('button', { name: 'Eliminar y reasignar' })).toBeEnabled()
     })
 
     // CA-15.2 y CA-15.8: se reparten entre varios abogados en la misma operación.
@@ -114,7 +119,52 @@ describe('LawyersPage · eliminar abogado', () => {
 
         await user.click(within(dialog).getByRole('button', { name: /Quitar todas las de Bustos, Carolina/ }))
         expect(within(dialog).getByText('Sin asignar · 2 de 2')).toBeInTheDocument()
-        expect(within(dialog).getByRole('button', { name: 'Eliminar y reasignar' })).toBeDisabled()
+    })
+
+    // D-143: las que no se asignan quedan huérfanas; la confirmación las lista (V6 §3.3).
+    it('avisa cuáles quedan sin asignar, pide confirmar y las manda con unassigned', async () => {
+        const { user } = renderPage()
+        const dialog = await openDelete(user, PERALTA)
+
+        await user.click(await within(dialog).findByRole('checkbox', { name: new RegExp(escape(caption(2))) }))
+        await user.click(within(dialog).getByRole('button', { name: /Asignar 1 a Bustos, Carolina/ }))
+        await user.click(within(dialog).getByRole('button', { name: 'Eliminar y reasignar' }))
+
+        const confirm = currentDialog()
+        expect(await within(confirm).findByText(/Se reasigna 1 causa y se da de baja a Peralta, Ignacio/)).toBeInTheDocument()
+        expect(within(confirm).getByText('Queda sin asignar · 1')).toBeInTheDocument()
+        expect(within(confirm).getByText('Sin responsable hasta que se la reasigne.')).toBeInTheDocument()
+        const orphans = within(confirm).getByRole('list', { name: 'Causas que quedan sin asignar' })
+        expect(within(orphans).getByText(caption(11))).toBeInTheDocument()
+        expect(within(orphans).queryByText(caption(2))).not.toBeInTheDocument()
+        await user.click(within(confirm).getByRole('button', { name: 'Confirmar y eliminar' }))
+
+        expect(await screen.findByText(/Causas reasignadas: Bustos \(1\)\. 1 causa queda sin asignar\. Abogado Peralta, Ignacio eliminado/)).toBeInTheDocument()
+        expect(db.cases.find((c) => c.id === 2)?.responsibleLawyerId).toBe(5)
+        const orphan = db.cases.find((c) => c.id === 11)
+        expect(orphan?.responsibleLawyerId).toBeNull()
+        expect(orphan?.orphanedAt).not.toBeNull()
+    })
+
+    // D-143: sin usuario vinculado igual confirma, si quedan causas sin asignar.
+    it('sin usuario vinculado, igual pide confirmar si quedan causas sin asignar', async () => {
+        const linked = db.users.find((u) => u.username === 'iperalta')
+        if (linked) linked.lawyerId = null
+        const { user } = renderPage()
+        const dialog = await openDelete(user, PERALTA)
+
+        await within(dialog).findByText('Sin asignar · 2 de 2')
+        await user.click(within(dialog).getByRole('button', { name: 'Eliminar y reasignar' }))
+
+        const confirm = currentDialog()
+        expect(await within(confirm).findByText('Quedan sin asignar · 2')).toBeInTheDocument()
+        expect(within(confirm).getByText(/^Se da de baja a Peralta, Ignacio/)).toBeInTheDocument()
+        expect(within(confirm).queryByText(/El usuario iperalta/)).not.toBeInTheDocument()
+        expect(db.lawyers.find((l) => l.id === 4)?.active).toBe(true)
+        await user.click(within(confirm).getByRole('button', { name: 'Confirmar y eliminar' }))
+
+        await screen.findByText(/2 causas quedan sin asignar\. Abogado Peralta, Ignacio eliminado/)
+        expect(db.cases.filter((c) => c.responsibleLawyerId === null).map((c) => c.id)).toEqual(expect.arrayContaining([2, 11]))
     })
 
     // CA-15.3: el que se da de baja no es destino de su propio reparto.

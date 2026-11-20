@@ -1,15 +1,16 @@
 # Mocks — API simulada
 
-Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V5.md` (Sprint 4,
-con la revisión del 27/10/2026): los endpoints del contrato, con sus códigos de
-error, su paginación, sus filtros, sus permisos por perfil y sus bajas
-lógicas. Sirve para desarrollar pantallas sin backend levantado y para tener
-fixtures estables en los tests.
+Implementación en memoria de `docs/Api-Contract/API_CONTRACT_V6.md` (Sprint 5,
+con la revisión del 16 y 17/11/2026): los endpoints del contrato, con sus
+códigos de error, su paginación, sus filtros, sus permisos por perfil y sus
+bajas lógicas. Sirve para desarrollar pantallas sin backend levantado y para
+tener fixtures estables en los tests.
 
-**Está entero**: lo del Sprint 3 ([Lo que suma el Sprint 3](#lo-que-suma-el-sprint-3-v4))
-y lo del Sprint 4, que es modificar y dar de baja una causa, la carátula,
+**Está entero**: lo del Sprint 3 ([Lo que suma el Sprint 3](#lo-que-suma-el-sprint-3-v4)),
+lo del Sprint 4, que es modificar y dar de baja una causa, la carátula,
 modificar un acto procesal, los documentos de la causa y el expediente
-([Lo que suma el Sprint 4](#lo-que-suma-el-sprint-4-v5)).
+([Lo que suma el Sprint 4](#lo-que-suma-el-sprint-4-v5)), y lo del Sprint 5,
+detallado abajo.
 
 > **V6 (09/11/2026).** El contrato vigente pasa a ser
 > `docs/Api-Contract/API_CONTRACT_V6.md`. Del Sprint 5 ya están `PATCH` y
@@ -29,12 +30,20 @@ modificar un acto procesal, los documentos de la causa y el expediente
 > se recalcula solo, porque sale de `actsOf` (D-124, D-99). Se prueba con
 > `mrios` sobre la causa 1 (vuelve al acto anterior), la 9 (anular "Archivada"
 > la reabre) o la 17; en la 10, prescripta, responde `422`.
-> **Lo demás todavía no está en el mock**: `GET /reports/monthly` y
-> `GET /reports/monthly/file`. Además, `DELETE /lawyers/{lawyerId}` sigue la
-> regla de V5 (`409` si el abogado tiene causas o un usuario vinculado). V6 la
-> cambia: reasigna sus causas activas con `reassignments`, y el usuario
-> vinculado ya no bloquea (D-123, D-133). Ver `frontend/CLAUDE.md`, "Cambios de
-> V6 sobre lo que ya estaba hecho".
+> También `DELETE /lawyers/{lawyerId}` con el reparto de V6 (HU15;
+> 14/11/2026): cada causa activa va en `reassignments`, las terminales no se
+> reparten, una activa que falta responde `409 LAWYER_HAS_DEPENDENCIES`, y el
+> usuario vinculado ya no bloquea (D-123, D-133): pierde el perfil Abogado o,
+> si era el único, se da de baja. Se prueba con Peralta (4): las causas 2 y 11
+> activas, la 21 terminal, y el usuario `iperalta`. Y `GET /reports/monthly`
+> y `GET /reports/monthly/file` (HU43; 14/11/2026): el reporte se calcula en
+> cada pedido desde la base, desde enero de 2026 (`REPORTS_AVAILABLE_FROM`),
+> y el PDF es mínimo (`pdf.ts`).
+> **Revisión de V6 del 16 y 17/11/2026** (19/11/2026): causa huérfana (D-143),
+> `unassigned` en el reparto, en `GET /cases` y en el reporte (D-145), y
+> los cambios de responsable en la línea de vida (D-147). Ver
+> [Lo que suma la revisión de V6 del 16 y 17/11/2026](#lo-que-suma-la-revisión-de-v6-del-16-y-17112026).
+> **Del Sprint 5 está todo.**
 
 > **`tests/unit/contract/endpoints.test.ts` está en verde** (14/11/2026): el
 > mock y `docs/openapi` tienen los mismos endpoints, también el `DELETE` de
@@ -203,6 +212,12 @@ quien no lo es recibe "Solo el abogado responsable de la causa puede registrar
 actos procesales." Para saber con quién probar una causa, mirá su
 `responsibleLawyer`; las cuentas de cada abogado están en `fixtures.ts`.
 
+**La excepción es la causa huérfana** (D-143): no tiene responsable, y sus
+actos (procesales e interruptivos, también `deadline-preview`, modificar y
+anular) los opera sólo un `ADMINISTRATOR`, aunque no tenga ficha
+(`supervision`). Ningún abogado. Lo resuelve `canActOnCase` en
+`handlers.ts`.
+
 ---
 
 ## Datos semilla
@@ -330,6 +345,29 @@ porque su unicidad es "entre los vigentes".
 
 `supervision` es administrador y **no tiene ficha**: es el caso que prueba que
 la matrícula la pide el rol `LAWYER` y no el administrativo.
+
+### Lo que suma la revisión de V6 del 16 y 17/11/2026
+
+Causa huérfana (D-143, D-145) y cambio de responsable en la línea de vida
+(D-147).
+
+- **Ninguna semilla es huérfana.** Como en el backend, se llega dando de baja
+  a un abogado y dejando una causa "Sin asignar": `DELETE /lawyers/4` con
+  `{ "reassignments": [{ "caseId": 2, "unassigned": true }, { "caseId": 11, "responsibleLawyerId": 5 }] }`.
+  La causa queda con `responsibleLawyerId: null`, `orphanedAt` y la carpeta en
+  `/VZ Causas/Causas/Sin asignar/{fuero}/`. En los tests, `orphanCase(id)`
+  de `tests/setup/orphan.ts` la arma directo sobre la base.
+- **`GET /cases?unassigned=true`** lista sólo las huérfanas.
+- **`PATCH /cases/{id}`** con un `responsibleLawyerId` vigente la reasigna y
+  borra `orphanedAt`; con `null`, `400`.
+- **Los tableros no las cuentan** (C-49, abierto). **El reporte mensual** sí:
+  van en `unassigned`, fuera del promedio, el mínimo y el máximo, y las
+  alertas de prescripción las traen con `responsibleLawyer` en `null`.
+- **Cambios de responsable** (`db.responsibleChanges`): los registran
+  `PATCH /cases/{id}` (`MANUAL`) y `DELETE /lawyers/{id}`
+  (`LAWYER_REMOVAL`), sólo si el responsable cambia de verdad. La línea de
+  vida los devuelve como `RESPONSIBLE_LAWYER_CHANGE`, con `kind` calculado y
+  los abogados como son hoy. La semilla no trae: son sólo hacia adelante.
 
 ### Los vencimientos son relativos a hoy
 
@@ -557,6 +595,8 @@ de servir en el acto.
 | `404`, Sprint 4 | cualquier pedido sobre una causa dada de baja → `CASE_NOT_FOUND`; un acto de otra causa o (V6) ya anulado → `PROCEDURAL_ACT_NOT_FOUND`; descargar un documento de la causa 2 pidiéndolo por la 1, o uno inexistente → `DOCUMENT_NOT_FOUND` |
 | `409`, Sprint 4 | `PATCH /cases/1` con el SAC de otra causa vigente (`12907344`). El de una causa dada de baja no choca |
 | `422`, Sprint 4 | causa 10: `PATCH` con `legalQualifications`, o modificar o (V6) anular uno de sus actos → `CASE_IN_TERMINAL_STATE`; expediente de las causas 11, 22 o 23 → `CASE_FOLDER_NOT_AVAILABLE`; expediente con la "Planilla de gastos" de la causa 1 → `DOCUMENT_NOT_CONVERTIBLE` |
+| `400`, revisión del 16/11/2026 (D-143) | `GET /cases?unassigned=true&responsibleLawyerId=3` o `?unassigned=si` → `INVALID_REQUEST` con `details.unassigned`; `DELETE /lawyers/4` con una entrada que lleva `responsibleLawyerId` y `unassigned`, ninguno de los dos, o `unassigned: false` → `VALIDATION_ERROR` con `details.reassignments` (un solo texto); `PATCH /cases/1` con `responsibleLawyerId: null` |
+| `403`, revisión del 16/11/2026 (D-143) | en una causa huérfana, cualquier usuario sin `ADMINISTRATOR` registrando, modificando o anulando un acto, o pidiendo `deadline-preview`: `mrios` y `gestion` reciben `403`; `supervision` y `fvazquez` pasan |
 | `502`, Sprint 4 | con `db.failures.documentStorage`: la lista de documentos, la descarga y el expediente (que no consume el número de versión) |
 
 #### Subir y descargar archivos

@@ -5,9 +5,38 @@
 
 .vz-report-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-.vz-report-picker { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.vz-report-picker__nav { display: flex; align-items: center; gap: 4px; }
-.vz-report-picker__select { width: auto; min-width: 190px; }
+/* El selector de mes: "‹ | Agosto 2026 ▾ | ›" en un solo recuadro, del alto de
+   los botones, y "Último cerrado" como link al costado (19/11/2026). */
+.vz-report-picker { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.vz-report-picker__nav {
+  display: inline-flex;
+  align-items: stretch;
+  height: 40px;
+  border: 1px solid var(--vz-border-strong);
+  border-radius: var(--vz-r-sm);
+  background: var(--vz-surface);
+  overflow: hidden;
+}
+.vz-report-picker__nav:focus-within { border-color: var(--vz-faint); }
+.vz-report-picker__arrow {
+  width: 38px;
+  height: auto;
+  border-radius: 0;
+}
+.vz-report-picker__arrow:disabled { opacity: .4; cursor: not-allowed; background: none; }
+.vz-report-picker__select {
+  width: auto;
+  min-width: 180px;
+  height: auto;
+  border: 0;
+  border-left: 1px solid var(--vz-border);
+  border-right: 1px solid var(--vz-border);
+  border-radius: 0;
+  font-weight: 600;
+  text-align: center;
+  text-align-last: center;
+}
+.vz-report-picker__select:hover { border-color: var(--vz-border); background-color: var(--vz-sunken); }
 
 .vz-report { display: flex; flex-direction: column; gap: 16px; transition: opacity .15s; }
 .vz-report.is-busy { opacity: .6; }
@@ -126,6 +155,9 @@
 .vz-report-load { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .vz-report-load__row { display: grid; grid-template-columns: minmax(110px, 200px) minmax(0, 1fr) 36px; align-items: center; gap: 12px; }
 .vz-report-load__name { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* "Sin asignar" (D-145): no es un abogado. Va separado y con el nombre apagado. */
+.vz-report-load__row--unassigned { padding-top: 10px; border-top: 1px dashed var(--vz-border); }
+.vz-report-load__row--unassigned .vz-report-load__name { font-style: italic; color: var(--vz-muted); }
 .vz-report-load__track { position: relative; height: 16px; }
 .vz-report-load__bar { display: flex; height: 100%; gap: 2px; border-radius: var(--vz-r-sm); overflow: hidden; }
 .vz-report-load__avg { position: absolute; top: -4px; bottom: -4px; border-left: 1.5px dashed var(--vz-ink); opacity: .55; }

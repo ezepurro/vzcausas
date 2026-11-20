@@ -49,6 +49,7 @@ import {
     UNCONFIRMED_CASE_FILE_MESSAGE,
 } from '@/features/cases/utils/caseFile'
 import { sacLabel } from '@/features/cases/utils/sac'
+import { casesListPath } from '@/features/cases/utils/casesListPath'
 
 /**
  * "Generar expediente" (HU25), en `/causas/:caseId/expediente`.
@@ -69,7 +70,8 @@ export function GenerateCaseFilePage() {
     const c = query.data
     usePageTitle(c ? `Generar expediente · ${c.caption}` : 'Generar expediente')
     const crumbs: BreadcrumbItem[] = [
-        { label: 'Causas', onClick: () => navigate('/causas') },
+        // Al último listado, con sus filtros (`casesListPath`).
+        { label: 'Causas', onClick: () => navigate(casesListPath()) },
         { label: c ? sacLabel(c.sacNumber) : '…', onClick: c ? () => navigate(`/causas/${c.id}`) : undefined },
         { label: 'Generar expediente' },
     ]

@@ -1309,6 +1309,33 @@ pantalla en lo que queda del sprint:
   los números es del backend: el front no los recalcula, así que no se testea
   acá ([Lo que no se testea](#lo-que-no-se-testea-a-propósito)).
 
+### Revisión de V6 del 16 y 17/11/2026: causa huérfana y filtros (19/11/2026)
+
+Causa huérfana (D-143, D-145), cambio de responsable en la línea de vida
+(D-147) y los filtros del listado de causas en la URL (pedido del 19/11/2026).
+Las decisiones de pantalla están en `cases/CAMBIOS.md`, `lawyers/CAMBIOS.md`
+y `dashboard/CAMBIOS.md`.
+
+**El mock no trae causas huérfanas entre sus semillas.** Un test que necesita
+una la arma con `orphanCase(id)` de `tests/setup/orphan.ts`, antes de
+renderizar; el setup devuelve la base a su estado al terminar. Así los demás
+tests no cambian sus conteos.
+
+| Archivo (en `tests/`) | Qué fija |
+|---|---|
+| `components/cases/CaseDetailPage.orphan.test.tsx` | Una huérfana muestra "Sin asignar" y el aviso; el Administrador registra actos y la reasigna; la Secretaría la modifica pero no registra actos; un abogado no la opera; "Asignar responsable" arranca vacío de verdad y pide elegir uno |
+| `components/cases/CaseDetailPage.responsibleChange.test.tsx` | La entrada `RESPONSIBLE_LAWYER_CHANGE`: de quién a quién, "Por la baja de un abogado", quién lo hizo, "Sin asignar"; "Modificar causa" suma la entrada; una causa sin actos sigue ofreciendo el primero |
+| `components/cases/CasesPage.test.tsx` | El filtro "Sin asignar" manda `unassigned=true` sin `responsibleLawyerId`; los filtros sobreviven a ir al detalle y volver; la URL con filtros los aplica y un valor raro se ignora |
+| `unit/cases/casesListPath.test.ts` | La miga "Causas" vuelve al último listado de la pestaña, o al limpio |
+| `components/lawyers/LawyersPage.delete.test.tsx` | No hace falta asignarlas todas; la confirmación lista las que quedan sin asignar, también sin usuario vinculado, y viajan con `unassigned: true` |
+| `unit/lawyers/reassignment.test.ts` | Una causa sin asignar viaja con `unassigned: true` y no cuenta para ningún abogado |
+| `components/dashboard/ReportsPage.test.tsx` | El renglón "Sin asignar" de la carga por abogado, sin la línea del promedio; sin huérfanas no aparece |
+| `components/proceedings/RegisterProceduralActPage.test.tsx` | En una huérfana, el Administrador ve el formulario y ningún abogado registra actos |
+
+**Para correrlos en Windows,** la terminal tiene que estar en `C:\…`, con la
+letra de unidad en mayúscula. Con `c:\…` todos los tests fallan con "Vitest
+failed to find the runner" (`frontend/CLAUDE.md`, "Problemas conocidos").
+
 ---
 
 ## 12. Lint de los tests

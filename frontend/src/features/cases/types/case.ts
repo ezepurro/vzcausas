@@ -239,7 +239,13 @@ export interface Case {
     /** Si se pagó la tasa de justicia (RN10). En los tres fueros. */
     courtFeePaid: boolean
     client: CaseClient
-    responsibleLawyer: CaseLawyer
+    /**
+     * `null` en una causa huérfana (D-143): quedó sin responsable al dar de
+     * baja a su abogado. Se muestra con `responsibleLabel`.
+     */
+    responsibleLawyer: CaseLawyer | null
+    /** ISO 8601: desde cuándo la causa es huérfana. `null` si tiene responsable (D-143). */
+    orphanedAt: string | null
     /** Opcional en el penal (D-33); vacío en los demás fueros. */
     legalQualifications: CaseLegalQualification[]
     /** La que rige la causa, calculada por el backend (V4 D-51). */
@@ -376,7 +382,10 @@ export interface CaseListParams extends PaginatedQuery {
     /** Filtra por SAC, carátula y apellido y nombres del cliente. */
     search?: string
     jurisdiction?: Jurisdiction
+    /** Excluyente con `unassigned`. */
     responsibleLawyerId?: number
+    /** `true`: sólo las causas huérfanas, sin responsable (D-143). Excluyente con `responsibleLawyerId`. */
+    unassigned?: boolean
     /** Excluyente con `customState` y `withoutProceduralActs`. */
     proceduralStateId?: number
     /** Excluyente con `proceduralStateId` y `withoutProceduralActs`. */

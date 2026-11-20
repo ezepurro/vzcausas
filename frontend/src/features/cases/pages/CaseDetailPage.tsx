@@ -10,9 +10,9 @@ import { useStillShowing } from '@/shared/hooks/useStillShowing'
 import { isApiError } from '@/shared/api/ApiError'
 import { Breadcrumbs, Button, Icon, LoadError, Panel, type BreadcrumbItem } from '@/shared/components/ui'
 import { usePageTitle } from '@/shared/hooks/usePageTitle'
-import { formatDate, todayIsoDate } from '@/shared/lib/dates'
-import { formatPersonFullName } from '@/shared/lib/personName'
+import { formatDate, formatInstantDate, todayIsoDate } from '@/shared/lib/dates'
 import { useCase } from '@/features/cases/api/useCase'
+import { casesListPath } from '@/features/cases/utils/casesListPath'
 import { useCaseEdit } from '@/features/cases/api/useCaseEdit'
 import { useCaseTimeline } from '@/features/cases/api/useCaseTimeline'
 import { useCreateCaseFolder } from '@/features/cases/api/useCreateCaseFolder'
@@ -42,7 +42,7 @@ import type { Case, CaseLegalQualification } from '@/features/cases/types/case'
 import type { InterruptiveActFormValues } from '@/features/cases/types/interruptiveAct'
 import type { PrescriptionDeclarationFormValues } from '@/features/cases/types/prescriptionDeclaration'
 import type { ProceduralAct } from '@/features/cases/types/proceduralAct'
-import { caseOperation, isResponsibleLawyer } from '@/features/cases/utils/responsibleLawyer'
+import { canActOnCase, caseActors, caseOperation, isOrphanCase } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
 import { toCreateInterruptiveActBody } from '@/features/cases/utils/toCreateInterruptiveActBody'
 import { toDeclarePrescriptionBody } from '@/features/cases/utils/toDeclarePrescriptionBody'
@@ -101,13 +101,15 @@ export function CaseDetailPage() {
        esté creada, y eso lo dice la causa (CA-38.5). */
     useCaseTimeline(caseId)
     // Al listado o a Inicio, según de dónde se entró.
-    const goBack = useGoBack('/causas')
+    /* La flecha, la miga y la vuelta tras la baja llevan al último listado,
+       con sus filtros (`casesListPath`, cases/CAMBIOS.md). */
+    const goBack = useGoBack(casesListPath())
 
     const c = query.data
     // La carátula: es como se reconoce una causa entre varias pestañas (H-20).
     usePageTitle(c?.caption)
     const crumbs: BreadcrumbItem[] = [
-        { label: 'Causas', onClick: () => navigate('/causas') },
+        { label: 'Causas', onClick: () => navigate(casesListPath()) },
         { label: c ? sacLabel(c.sacNumber) : '…' },
     ]
 
@@ -170,6 +172,7 @@ function CaseDetail({ case: c }: { case: Case }) {
     const showPrescription = useCan('cases.declarePrescription')
     const operateAnyCase = useCan('cases.operateAnyCase')
     const declarePrescriptionAnyCase = useCan('cases.declarePrescriptionAnyCase')
+    const actOnOrphanCase = useCan('cases.actOnOrphanCase')
     const timeline = useCaseTimeline(c.id)
     /* Los documentos se leen de la carpeta: sin ella creada no hay pedido (CA-38.5). */
     const folderCreated = c.folder?.status === 'CREATED'
@@ -189,8 +192,10 @@ function CaseDetail({ case: c }: { case: Case }) {
     const [modal, setModal] = useState<ModalState>(null)
 
     /* Sólo el abogado responsable registra los actos de esta causa, procesales
-       e interruptivos (D-30, D-50). No es un permiso por rol: depende de la causa. */
-    const isResponsible = isResponsibleLawyer(c, lawyer?.id ?? null)
+       e interruptivos (D-30, D-50), o el Administrador si es huérfana (D-143).
+       Depende de la causa: lo resuelve `canActOnCase`. */
+    const canAct = canActOnCase(c, lawyer?.id ?? null, actOnOrphanCase)
+    const orphan = isOrphanCase(c)
     /* Modificar, dar de baja, la carpeta y "Marcar prescripta" (D-110): el
        responsable, o un rol que opera cualquier causa. */
     const { canOperate, canDeclarePrescription } = caseOperation(c, lawyer?.id ?? null, {
@@ -219,8 +224,10 @@ function CaseDetail({ case: c }: { case: Case }) {
         )
     }
 
-    const onlyResponsible = `Solo el abogado responsable (${formatPersonFullName(c.responsibleLawyer)})`
-    const notResponsibleNote = `${onlyResponsible} modifica o da de baja la causa.`
+    /* Quién puede lo que el usuario no puede. En una huérfana no hay abogado
+       que nombrar: los actos son del Administrador (D-143). */
+    const actors = caseActors(c)
+    const notResponsibleNote = `${actors.operate} modifica o da de baja la causa.`
     /* Las notas visibles que explican los botones deshabilitados (H-53): el
        `title` no se ve en el teléfono ni se alcanza con el teclado. Va una
        por zona, pegada a sus botones, y dice sólo lo que está bloqueado ahí
@@ -229,19 +236,19 @@ function CaseDetail({ case: c }: { case: Case }) {
     /* La del encabezado: "Registrar acto procesal", "Modificar causa", "Dar de
        baja" y, en la línea de vida, "Registrar el primer acto". */
     const headNoteId = useId()
-    const headNote = isResponsible
+    const headNote = canAct
         ? null
         : canOperate
-            ? `${onlyResponsible} registra actos.`
-            : `${onlyResponsible} registra actos, y modifica o da de baja la causa.`
+            ? `${actors.acts} registra actos.`
+            : actors.actsAndOperateNote
     /* La de la fila "Sobre la causa": "Registrar acto interruptivo", "Marcar
        toda la causa prescripta" y "Marcar prescripta" de cada calificación. */
     const caseActionsNoteId = useId()
-    const caseActionsNote = isResponsible
+    const caseActionsNote = canAct
         ? null
         : showPrescription && !canDeclarePrescription
-            ? `${onlyResponsible} registra actos interruptivos y marca prescripta la causa o sus calificaciones.`
-            : `${onlyResponsible} registra actos interruptivos.`
+            ? `${actors.acts} registra actos interruptivos y marca prescripta la causa o sus calificaciones.`
+            : `${actors.acts} registra actos interruptivos.`
     const goRegisterAct = () => navigate(`/causas/${c.id}/acto`)
 
     /* Los actos de una causa prescripta no se modifican ni se anulan (D-99,
@@ -253,18 +260,18 @@ function CaseDetail({ case: c }: { case: Case }) {
        "Modificar" y "Anular" van deshabilitados con esta nota, como "Registrar
        acto procesal". Antes estaba habilitado y avisaba al tocarlo (tanda 15
        de `docs/auditoria-front`). */
-    const modifyBlockedNote = isResponsible
+    const modifyBlockedNote = canAct
         ? null
-        : `${onlyResponsible} modifica y anula los actos procesales.`
+        : `${actors.acts} modifica y anula los actos procesales.`
 
     function modifyAct(act: ProceduralAct) {
-        if (!isResponsible) return
+        if (!canAct) return
         navigate(`/causas/${c.id}/acto/${act.id}`)
     }
 
     /* HU29: "Anular" abre el diálogo ahí mismo, sin salir del detalle. */
     function openAnnulAct(act: ProceduralAct) {
-        if (!isResponsible) return
+        if (!canAct) return
         setModal({ kind: 'annulAct', act, values: { reason: '' }, errors: {} })
     }
 
@@ -275,7 +282,7 @@ function CaseDetail({ case: c }: { case: Case }) {
     function openInterruptive() {
         /* Deshabilitado para quien no es el responsable (D-30), como "Registrar
            acto procesal". Antes avisaba al tocarlo, como el prototipo (tanda 15). */
-        if (!isResponsible) return
+        if (!canAct) return
         setModal({ kind: 'interruptive', values: { name: '', actDate: todayIsoDate(), notes: '' }, errors: {} })
     }
 
@@ -408,7 +415,7 @@ function CaseDetail({ case: c }: { case: Case }) {
         deleteCase.mutate(toDeleteCaseBody(values), {
             onSuccess: () => {
                 toast('info', CASE_DELETED)
-                navigate('/causas')
+                navigate(casesListPath())
             },
             onError: handleApiError,
         })
@@ -462,7 +469,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                         declare={showCaseActions && showPrescription
                             ? {
                                   enabled: canDeclarePrescription,
-                                  disabledTitle: `${onlyResponsible} declara la prescripción de sus calificaciones.`,
+                                  disabledTitle: `${actors.prescription} declara la prescripción de sus calificaciones.`,
                                   disabledNoteId: caseActionsNoteId,
                                   onDeclare: openQualificationPrescription,
                               }
@@ -473,7 +480,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     <>
                         <Button
                             icon={<Icon name="plus" />}
-                            disabled={!isResponsible}
+                            disabled={!canAct}
                             aria-describedby={headNote ? headNoteId : undefined}
                             onClick={goRegisterAct}
                         >
@@ -513,6 +520,21 @@ function CaseDetail({ case: c }: { case: Case }) {
                     </>
                 }
             >
+                {/* Una causa huérfana (D-143): sigue vigente y sus plazos corren.
+                    Quien la opera la reasigna desde "Modificar causa". */}
+                {orphan && (
+                    <div className="vz-case-orphan" role="note">
+                        <p>
+                            <b>Esta causa no tiene abogado responsable</b>
+                            {c.orphanedAt && <> desde el {formatInstantDate(c.orphanedAt)}</>}. Sus plazos y su prescripción siguen corriendo.
+                        </p>
+                        {canOperate && (
+                            <Button variant="secondary" size="sm" onClick={edit.open}>
+                                Asignar responsable
+                            </Button>
+                        )}
+                    </div>
+                )}
                 <CasePrescriptionBar case={c} />
                 <div className="vz-case-actions">
                     <span className="vz-case-actions__label">Sobre la causa</span>
@@ -520,7 +542,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                         <Button
                             variant="secondary"
                             size="sm"
-                            disabled={!isResponsible}
+                            disabled={!canAct}
                             aria-describedby={caseActionsNote ? caseActionsNoteId : undefined}
                             onClick={openInterruptive}
                         >
@@ -540,7 +562,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                             disabled={!canDeclarePrescription}
                             title={canDeclarePrescription
                                 ? undefined
-                                : `${onlyResponsible} marca prescripta la causa.`}
+                                : `${actors.prescription} marca prescripta la causa.`}
                             aria-describedby={canDeclarePrescription ? undefined : caseActionsNoteId}
                             onClick={openPrescription}
                         >
@@ -561,7 +583,7 @@ function CaseDetail({ case: c }: { case: Case }) {
                     error={timeline.isError ? timeline.error : null}
                     onRetry={() => void timeline.refetch()}
                     retrying={timeline.isFetching}
-                    canRegisterAct={isResponsible}
+                    canRegisterAct={canAct}
                     onRegisterAct={goRegisterAct}
                     registerNoteId={headNoteId}
                     canModifyActs={canModifyActs}

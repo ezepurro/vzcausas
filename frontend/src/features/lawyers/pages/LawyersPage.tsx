@@ -23,7 +23,12 @@ import { toFormErrors } from '@/features/lawyers/utils/toFormErrors'
 import { LawyersTable } from '@/features/lawyers/components/LawyersTable'
 import { LawyerFormModal } from '@/features/lawyers/components/LawyerFormModal'
 import { DeleteLawyerModal } from '@/features/lawyers/components/DeleteLawyerModal'
-import { countByLawyer, toDeleteLawyerBody, type Reassignment } from '@/features/lawyers/utils/reassignment'
+import {
+    countByLawyer,
+    toDeleteLawyerBody,
+    pendingCaseIds,
+    type Reassignment,
+} from '@/features/lawyers/utils/reassignment'
 import { lawyerLabel } from '@/features/lawyers/utils/lawyerLabel'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import { formatPersonName } from '@/shared/lib/personName'
@@ -200,10 +205,16 @@ export function LawyersPage() {
                     const moved = [...countByLawyer(reassignment)]
                         .map(([id, n]) => `${names.get(id) ?? id} (${n})`)
                         .join(', ')
+                    // Las que quedaron huérfanas, sin responsable (D-143).
+                    const orphaned = pendingCaseIds(reassignment).length
+                    const parts = [
+                        moved && `Causas reasignadas: ${moved}.`,
+                        orphaned > 0 && `${orphaned === 1 ? '1 causa queda' : `${orphaned} causas quedan`} sin asignar.`,
+                    ].filter(Boolean)
                     toast(
                         'info',
-                        moved
-                            ? `Causas reasignadas: ${moved}. Abogado ${formatPersonName(lawyer)} eliminado.`
+                        parts.length > 0
+                            ? `${parts.join(' ')} Abogado ${formatPersonName(lawyer)} eliminado.`
                             : `Abogado ${formatPersonName(lawyer)} eliminado. Se conserva su historial.`,
                     )
                     // Si era la última fila de la página, se vuelve a la anterior.

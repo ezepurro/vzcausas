@@ -26,8 +26,16 @@ export { CasePrescriptionBar } from './components/CasePrescriptionBar'
 export { PrescriptionBar } from './components/PrescriptionBar'
 export { nearestQualification } from './utils/prescription'
 export { openDeadline, DEADLINE_KIND_LABELS, type DeadlineKind, type OpenDeadline } from './utils/openDeadline'
-export { isResponsibleLawyer } from './utils/responsibleLawyer'
+export {
+    canActOnCase,
+    caseActors,
+    isOrphanCase,
+    isResponsibleLawyer,
+    responsibleLabel,
+    UNASSIGNED_LABEL,
+} from './utils/responsibleLawyer'
 export { NO_SAC_LABEL, sacLabel } from './utils/sac'
+export { casesListPath } from './utils/casesListPath'
 export { ClientActiveCases } from './components/ClientActiveCases'
 export {
     PROCEDURAL_ROLE_LABELS,

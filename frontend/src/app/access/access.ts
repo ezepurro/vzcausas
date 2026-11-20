@@ -62,6 +62,7 @@ export type Action =
     | 'cases.declarePrescription'
     | 'cases.declarePrescriptionAnyCase'
     | 'cases.operateAnyCase'
+    | 'cases.actOnOrphanCase'
     | 'cases.downloadDocument'
 
 export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
@@ -87,6 +88,11 @@ export const ACTION_ACCESS: Record<Action, readonly Role[]> = {
     // causa, sin ser el responsable: el Administrador y la Secretaría. Un
     // abogado, sólo las suyas (V5 §4, "Operación de la causa", D-110).
     'cases.operateAnyCase': ADMIN_AND_SECRETARY,
+    // Registrar, modificar y anular los actos procesales e interruptivos de
+    // una causa huérfana, sin responsable: sólo el Administrador (V6 §4,
+    // "Causa huérfana", D-143, D-144). En las demás, sólo el responsable: eso
+    // depende de la causa y lo resuelve `canActOnCase`.
+    'cases.actOnOrphanCase': ADMIN,
     // "Descargar" un documento de la causa que no es un expediente: el
     // Abogado y la Secretaría, que tienen la carpeta compartida en Drive; el
     // Administrador no (V5 §3.12, D-103, D-83). El expediente lo descarga

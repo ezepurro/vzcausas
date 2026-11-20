@@ -7,11 +7,14 @@
  * flecha (`frontend/CLAUDE.md`, "Qué publica el `index.ts` de cada módulo").
  */
 
-/** Una entrada del reparto: la causa y el abogado que pasa a ser su responsable. */
-export interface LawyerReassignment {
-    caseId: number
-    responsibleLawyerId: number
-}
+/**
+ * Una entrada del reparto: la causa y el abogado que pasa a ser su
+ * responsable o, **(D-143)**, `unassigned: true` si queda sin responsable
+ * (causa huérfana). Lleva una cosa o la otra, nunca las dos ni ninguna.
+ */
+export type LawyerReassignment =
+    | { caseId: number; responsibleLawyerId: number }
+    | { caseId: number; unassigned: true }
 
 /**
  * Cuerpo del `DELETE /lawyers/{lawyerId}`. Una entrada por **cada causa

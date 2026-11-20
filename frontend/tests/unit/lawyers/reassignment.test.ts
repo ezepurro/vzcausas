@@ -52,8 +52,22 @@ describe('reassignment', () => {
         expect(toDeleteLawyerBody(emptyReassignment([]))).toBeUndefined()
     })
 
+    // D-143: una causa que se confirma sin asignar viaja con `unassigned: true`, sin abogado.
+    it('manda las que quedaron sin asignar con unassigned', () => {
+        const r = assign(emptyReassignment([1, 12]), [1], 4)
+        expect(isComplete(r)).toBe(false)
+        expect(pendingCaseIds(r)).toEqual([12])
+        expect(toDeleteLawyerBody(r)).toEqual({
+            reassignments: [
+                { caseId: 1, responsibleLawyerId: 4 },
+                { caseId: 12, unassigned: true },
+            ],
+        })
+    })
+
     it('cuenta cuántas causas pasan a cada abogado', () => {
-        const r = assign(assign(emptyReassignment([1, 2, 3]), [1, 2], 4), [3], 5)
+        const r = assign(assign(emptyReassignment([1, 2, 3, 4]), [1, 2], 4), [3], 5)
+        // La 4 queda sin asignar: no es de ningún abogado.
         expect([...countByLawyer(r)]).toEqual([[4, 2], [5, 1]])
     })
 })

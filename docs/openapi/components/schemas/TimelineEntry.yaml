@@ -95,3 +95,56 @@ oneOf:
         description: La `prescriptionDate` de la declaración.
       prescriptionDeclaration:
         $ref: ./PrescriptionDeclaration.yaml
+  - type: object
+    title: Cambio de abogado responsable (D-147)
+    additionalProperties: false
+    required:
+      - type
+      - date
+      - responsibleLawyerChange
+    properties:
+      type:
+        const: RESPONSIBLE_LAWYER_CHANGE
+      date:
+        type: string
+        format: date
+        description: La fecha de `changedAt`, en Córdoba.
+      responsibleLawyerChange:
+        type: object
+        additionalProperties: false
+        required:
+          - id
+          - caseId
+          - kind
+          - previousLawyer
+          - newLawyer
+          - origin
+          - changedBy
+          - changedAt
+        properties:
+          id:
+            type: integer
+          caseId:
+            type: integer
+          kind:
+            type: string
+            enum: [REASSIGNED, ORPHANED, ASSIGNED_FROM_ORPHAN]
+          previousLawyer:
+            description: Como es hoy, aunque esté dado de baja. `null` en `ASSIGNED_FROM_ORPHAN`.
+            oneOf:
+              - $ref: ./LawyerReference.yaml
+              - type: 'null'
+          newLawyer:
+            description: `null` en `ORPHANED`.
+            oneOf:
+              - $ref: ./LawyerReference.yaml
+              - type: 'null'
+          origin:
+            type: string
+            enum: [LAWYER_REMOVAL, MANUAL]
+          changedBy:
+            description: El usuario que hizo el cambio, no necesariamente un abogado.
+            $ref: ./LawyerReference.yaml
+          changedAt:
+            type: string
+            format: date-time

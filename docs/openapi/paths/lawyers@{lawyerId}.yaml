@@ -186,7 +186,7 @@ delete:
             - caseId: 1
               responsibleLawyerId: 4
             - caseId: 12
-              responsibleLawyerId: 5
+              unassigned: true
   responses:
     '204':
       description: Abogado dado de baja. La respuesta no contiene cuerpo.

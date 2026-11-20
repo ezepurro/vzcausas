@@ -74,6 +74,24 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-14.7 | `unit/lawyers/buildLawyerPatch.test.ts` (unit) |
 | CA-14.10 | `unit/lawyers/buildLawyerPatch.test.ts` (unit) |
 
+## HU-15
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-15.1 | `components/lawyers/LawyersPage.delete.test.tsx` (componentes) |
+| CA-15.2 | `components/lawyers/LawyersPage.delete.test.tsx` (componentes) |
+| CA-15.3 | `components/lawyers/LawyersPage.delete.test.tsx` (componentes) |
+| CA-15.4 | Backend |
+| CA-15.5 | `components/lawyers/LawyersPage.delete.test.tsx` (componentes)<br>`unit/lawyers/reassignment.test.ts` (unit) |
+| CA-15.6 | Backend |
+| CA-15.7 | `components/cases/disabledReason.test.tsx` (componentes)<br>`components/lawyers/LawyersPage.delete.test.tsx` (componentes)<br>`unit/app/actionAccess.test.ts` (unit) |
+| CA-15.8 | `components/lawyers/LawyersPage.delete.test.tsx` (componentes) |
+| CA-15.9 | `components/lawyers/LawyersPage.delete.test.tsx` (componentes) |
+| CA-15.10 | `components/lawyers/LawyersPage.delete.test.tsx` (componentes)<br>`unit/lawyers/reassignment.test.ts` (unit) |
+| CA-15.11 | Backend |
+| CA-15.12 | Backend |
+| CA-15.13 | `components/lawyers/LawyersPage.delete.test.tsx` (componentes) |
+
 ## HU-18
 
 | Criterio | Dónde se cubre |
@@ -94,7 +112,7 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | Criterio | Dónde se cubre |
 | --- | --- |
 | CA-19.1 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
-| CA-19.2 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes)<br>`unit/cases/buildCasePatch.test.ts` (unit) |
+| CA-19.2 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes)<br>`components/cases/CaseDetailPage.orphan.test.tsx` (componentes)<br>`unit/cases/buildCasePatch.test.ts` (unit) |
 | CA-19.3 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
 | CA-19.4 | Backend |
 | CA-19.5 | `components/cases/CaseDetailPage.edit.test.tsx` (componentes) |
@@ -393,6 +411,25 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 | CA-42.9 | `unit/app/access.test.ts` (unit) |
 | CA-42.10 | `components/dashboard/HomePage.administrator.test.tsx` (componentes) |
 
+## HU-43
+
+| Criterio | Dónde se cubre |
+| --- | --- |
+| CA-43.1 | `components/app/AppLayout.test.tsx` (componentes)<br>`components/dashboard/ReportsPage.test.tsx` (componentes) |
+| CA-43.2 | `components/dashboard/ReportsPage.test.tsx` (componentes)<br>`unit/dashboard/reportPeriod.test.ts` (unit) |
+| CA-43.3 | `components/dashboard/ReportsPage.test.tsx` (componentes) |
+| CA-43.4 | `components/dashboard/ReportsPage.test.tsx` (componentes) |
+| CA-43.5 | Backend |
+| CA-43.6 | `components/dashboard/ReportsPage.test.tsx` (componentes) |
+| CA-43.7 | Backend |
+| CA-43.8 | `components/dashboard/ReportsPage.test.tsx` (componentes) |
+| CA-43.9 | `components/dashboard/ReportsPage.test.tsx` (componentes)<br>Backend |
+| CA-43.10 | Backend |
+| CA-43.11 | Backend |
+| CA-43.12 | `components/dashboard/ReportsPage.test.tsx` (componentes) |
+| CA-43.13 | Backend |
+| CA-43.14 | Backend |
+
 ## HU-48
 
 | Criterio | Dónde se cubre |
@@ -421,4 +458,4 @@ que corresponde al servidor: el frontend muestra lo que recibe y no lo prueba.
 
 ---
 
-259 criterios citados · 49 sólo del backend.
+286 criterios citados · 59 sólo del backend.

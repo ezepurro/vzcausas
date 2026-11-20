@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
+import { useNavigate } from 'react-router'
 import { renderWithProviders } from '../../setup/render'
 import { usePrototypeToday } from '../../setup/clock'
+import { orphanCase } from '../../setup/orphan'
 import { server } from '@/shared/mocks/server'
 import { errorBody } from '@/shared/mocks'
 import { HOVER_INTENT_MS } from '@/shared/hooks/useHoverIntent'
@@ -66,14 +68,25 @@ const EMPTY = 'Ninguna causa coincide con los filtros.'
 /** Una causa de la primera página: cuando aparece, el listado ya cargó. */
 const LOADED = '13284571'
 
-function renderPage(as = 'gestion') {
+/** El detalle de mentira, con la flecha "Volver": hace lo mismo que la del detalle (`useGoBack`). */
+function FakeDetail() {
+    const navigate = useNavigate()
+    return (
+        <>
+            <p>Detalle de la causa</p>
+            <button type="button" onClick={() => navigate(-1)}>Volver</button>
+        </>
+    )
+}
+
+function renderPage(as = 'gestion', route = '/causas') {
     return renderWithProviders(<CasesPage />, {
         as,
         path: '/causas',
-        route: '/causas',
+        route,
         routes: [
             { path: '/causas/nueva', element: <p>Pantalla de registrar causa</p> },
-            { path: '/causas/:caseId', element: <p>Detalle de la causa</p> },
+            { path: '/causas/:caseId', element: <FakeDetail /> },
         ],
     })
 }
@@ -183,6 +196,33 @@ describe('CasesPage', () => {
             expect(pagerCount(AMPARO.length)).toBeInTheDocument()
         })
 
+        /* D-143: "Sin asignar" en el filtro de responsable pide `unassigned=true`,
+           sin `responsibleLawyerId`: las causas huérfanas. El mock no trae
+           ninguna; el test deja huérfana la causa 1. */
+        it('"Sin asignar" muestra sólo las causas sin responsable', async () => {
+            orphanCase(1)
+            const urls: URL[] = []
+            const track = ({ request }: { request: Request }) => {
+                const url = new URL(request.url)
+                if (normalizePath(url.pathname) === '/cases') urls.push(url)
+            }
+            server.events.on('request:start', track)
+            try {
+                const { user } = renderPage()
+                await screen.findByText(LOADED)
+
+                await choose(user, () => screen.getByRole('combobox', { name: 'Filtrar por responsable' }), 'Sin asignar')
+
+                await expectSacs(['13284571'])
+                expect(column(4)).toEqual(['Sin asignar'])
+                const last = urls[urls.length - 1]
+                expect(last.searchParams.get('unassigned')).toBe('true')
+                expect(last.searchParams.has('responsibleLawyerId')).toBe(false)
+            } finally {
+                server.events.removeListener('request:start', track)
+            }
+        })
+
         /* CA-20.3: "por vencer" incluye las ya vencidas, que son las más urgentes. */
         it('"Solo con plazo por vencer" deja las que tienen vencimiento, vencidas incluidas', async () => {
             const { user } = renderPage()
@@ -227,6 +267,40 @@ describe('CasesPage', () => {
             await expectSacs(AMPARO)
             expect(stateSelect()).toHaveValue(ALL_STATES)
             expect(stateSelect()).toHaveDisplayValue('Todos los estados procesales')
+        })
+    })
+
+    /* Pedido del 19/11/2026 (cases/CAMBIOS.md): la búsqueda, los filtros y la
+       página van en la URL, así sobreviven a entrar a una causa y volver. */
+    describe('filtros que se conservan', () => {
+        it('al volver del detalle, el filtro sigue aplicado', async () => {
+            const { user } = renderPage()
+            await screen.findByText(LOADED)
+
+            await choose(user, jurisdictionSelect, 'Amparo')
+            await expectSacs(AMPARO)
+
+            await user.click(within(rowOf('13488127')).getByRole('button', { name: 'Ver detalle' }))
+            await user.click(await screen.findByRole('button', { name: 'Volver' }))
+
+            await expectSacs(AMPARO)
+            expect(jurisdictionSelect()).toHaveValue('AMPARO')
+        })
+
+        it('abrir el listado con filtros en la URL los aplica', async () => {
+            renderPage('gestion', '/causas?fuero=AMPARO&plazo=1')
+
+            await expectSacs(AMPARO.slice(0, 5))
+            expect(jurisdictionSelect()).toHaveValue('AMPARO')
+            expect(openDeadlineButton()).toHaveAttribute('aria-pressed', 'true')
+        })
+
+        it('un valor que no se entiende en la URL se ignora', async () => {
+            renderPage('gestion', '/causas?fuero=MARCIANO&pagina=-3')
+
+            expect(await screen.findByText(LOADED)).toBeInTheDocument()
+            expect(listedSacs()).toEqual(FIRST_PAGE)
+            expect(jurisdictionSelect()).toHaveValue('')
         })
     })
 

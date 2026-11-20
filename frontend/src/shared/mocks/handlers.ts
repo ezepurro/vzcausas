@@ -71,6 +71,7 @@ import {
     type CaseFilePart,
     type GeneratedCaseFile,
     type TimelineEntry,
+    type ResponsibleLawyerChange,
     type DashboardCaseToAdvance,
     type DashboardDeadline,
     type DashboardPrescriptionAlert,
@@ -132,6 +133,7 @@ import {
     type StoredCase,
     type StoredCaseQualification,
     type StoredFolder,
+    type StoredResponsibleChange,
 } from './db';
 import {
     EXPIRES_IN,
@@ -271,6 +273,18 @@ function requireRole(request: MockRequest, role: Role): AuthResult {
  */
 function isResponsibleLawyer(user: StoredUser, stored: StoredCase): boolean {
     return user.lawyerId !== null && user.lawyerId === stored.responsibleLawyerId;
+}
+
+/**
+ * Quien registra, modifica y anula los actos de la causa, procesales e
+ * interruptivos, y previsualiza su vencimiento: el abogado responsable (D-30)
+ * o, en una causa huérfana, un `ADMINISTRATOR` (V6 §4, "Causa huérfana",
+ * D-143). Ningún abogado opera los actos de una huérfana.
+ */
+function canActOnCase(user: StoredUser, stored: StoredCase): boolean {
+    return stored.responsibleLawyerId === null
+        ? user.roles.includes('ADMINISTRATOR')
+        : isResponsibleLawyer(user, stored);
 }
 
 /**
@@ -1064,31 +1078,46 @@ const deleteLawyer: Handler = ({ request, params }) => {
     const entries = Array.isArray(raw) ? raw : [];
 
     /* El detalle es una sola frase en `details.reassignments` (L1791-1795). */
+    /* D-143: cada entrada lleva `responsibleLawyerId` o `unassigned: true`
+       (la causa queda huérfana), nunca las dos ni ninguna. */
     const seen = new Set<number>();
-    const reassignments: Array<{ caseId: number; responsibleLawyerId: number }> = [];
+    const reassignments: Array<{ caseId: number; responsibleLawyerId: number | null }> = [];
     for (const entry of entries) {
         const item = asObject(entry);
         const caseId = item.caseId;
         const targetId = item.responsibleLawyerId;
-        if (!Number.isInteger(caseId) || !Number.isInteger(targetId)) {
-            return validationError({ reassignments: 'Cada entrada lleva caseId y responsibleLawyerId enteros.' });
+        const hasTarget = targetId !== undefined && targetId !== null;
+        const hasUnassigned = item.unassigned !== undefined && item.unassigned !== null;
+        if (!Number.isInteger(caseId)) {
+            return validationError({ reassignments: 'Cada entrada lleva un caseId entero.' });
+        }
+        if (hasTarget === hasUnassigned) {
+            return validationError({ reassignments: 'Cada entrada lleva responsibleLawyerId o unassigned, no las dos ni ninguna.' });
+        }
+        if (hasUnassigned && item.unassigned !== true) {
+            return validationError({ reassignments: 'unassigned solo puede ser true.' });
+        }
+        if (hasTarget && !Number.isInteger(targetId)) {
+            return validationError({ reassignments: 'responsibleLawyerId debe ser un entero.' });
         }
         const c = caseId as number;
-        const t = targetId as number;
         if (!activeIds.has(c)) {
             return validationError({ reassignments: `La causa ${c} no es una causa activa de este abogado.` });
         }
         if (seen.has(c)) {
             return validationError({ reassignments: `La causa ${c} figura más de una vez.` });
         }
-        if (t === lawyerId) {
-            return validationError({ reassignments: 'El abogado de destino no puede ser el que se da de baja.' });
-        }
-        if (!db.lawyers.some((l) => l.id === t && l.active)) {
-            return validationError({ reassignments: `No existe un abogado vigente con el identificador ${t}.` });
+        if (hasTarget) {
+            const t = targetId as number;
+            if (t === lawyerId) {
+                return validationError({ reassignments: 'El abogado de destino no puede ser el que se da de baja.' });
+            }
+            if (!db.lawyers.some((l) => l.id === t && l.active)) {
+                return validationError({ reassignments: `No existe un abogado vigente con el identificador ${t}.` });
+            }
         }
         seen.add(c);
-        reassignments.push({ caseId: c, responsibleLawyerId: t });
+        reassignments.push({ caseId: c, responsibleLawyerId: hasTarget ? (targetId as number) : null });
     }
 
     // Una causa activa sin repartir: no cambia nada y el cliente rearma el reparto (L1918).
@@ -1098,11 +1127,15 @@ const deleteLawyer: Handler = ({ request, params }) => {
 
     /* Todo junto, como la transacción del backend. Cada reasignación es un
        cambio de responsable como el de `PATCH /cases` (CA-15.8): la carpeta
-       pasa a `/{nuevo abogado}/{fuero}/` (CA-15.11). */
+       pasa a `/{nuevo abogado}/{fuero}/` (CA-15.11). La que queda sin
+       asignar pasa a ser huérfana (D-143), con su carpeta en `Sin asignar`. */
+    const now = nowIso();
     for (const r of reassignments) {
         const stored = db.cases.find((c) => c.id === r.caseId);
         if (!stored) continue;
+        recordResponsibleChange(stored.id, stored.responsibleLawyerId, r.responsibleLawyerId, 'LAWYER_REMOVAL', auth.user.id, now);
         stored.responsibleLawyerId = r.responsibleLawyerId;
+        stored.orphanedAt = r.responsibleLawyerId === null ? now : null;
         if (stored.folder && (stored.folder.status !== 'CREATED' || !db.failures.documentStorage)) {
             stored.folder.path = expectedFolderPath(stored);
         }
@@ -2053,6 +2086,8 @@ const createCase: Handler = ({ request }) => {
         courtFeePaid: courtFeePaid as boolean,
         clientId: clientId as number,
         responsibleLawyerId: lawyerId as number,
+        // `POST /cases` siempre exige un abogado: una causa nace con responsable (D-143).
+        orphanedAt: null,
         qualifications,
         startDate,
         folder: null,
@@ -2228,6 +2263,13 @@ const listCases: Handler = ({ request }) => {
     if (!openDeadline.ok) details.openDeadline = MSG_NOT_BOOLEAN;
     const withoutActs = readQueryBoolean(query, 'withoutProceduralActs');
     if (!withoutActs.ok) details.withoutProceduralActs = MSG_NOT_BOOLEAN;
+    /* Sólo las huérfanas (D-143). Excluyente con `responsibleLawyerId`. */
+    const unassigned = readQueryBoolean(query, 'unassigned');
+    if (!unassigned.ok) details.unassigned = MSG_NOT_BOOLEAN;
+    const onlyUnassigned = unassigned.ok && unassigned.value === true;
+    if (onlyUnassigned && lawyerId.ok && lawyerId.value !== undefined) {
+        details.unassigned = 'No puede combinarse con responsibleLawyerId.';
+    }
 
     const customState = asText(query.get('customState'));
 
@@ -2254,6 +2296,7 @@ const listCases: Handler = ({ request }) => {
         // Un abogado, un cliente o un estado inexistente no es un error:
         // devuelve una colección vacía.
         .filter((c) => (lawyerId.ok && lawyerId.value !== undefined ? c.responsibleLawyerId === lawyerId.value : true))
+        .filter((c) => (onlyUnassigned ? c.responsibleLawyerId === null : true))
         .filter((c) => (clientId.ok && clientId.value !== undefined ? c.clientId === clientId.value : true))
         .filter((c) => {
             const latest = latestActOf(c.id);
@@ -2407,8 +2450,9 @@ const createProceduralAct: Handler = ({ request, params }) => {
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
 
-    // Sólo el abogado responsable de la causa registra sus actos (V3 D-30).
-    if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsible);
+    // Sólo el abogado responsable de la causa registra sus actos (V3 D-30), o
+    // el Administrador en una huérfana (D-143).
+    if (!canActOnCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsible);
 
     const body = asObject(request.body);
     const details: Record<string, string> = {};
@@ -2531,8 +2575,9 @@ const previewDeadline: Handler = ({ request, params }) => {
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
 
-    // Igual que el registro al que sirve: sólo el abogado responsable (D-30).
-    if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsible);
+    // Igual que el registro al que sirve: sólo el abogado responsable (D-30),
+    // o el Administrador en una huérfana (D-143).
+    if (!canActOnCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsible);
 
     const { query } = request;
     const details: Record<string, string> = {};
@@ -2796,7 +2841,7 @@ const createInterruptiveAct: Handler = ({ request, params }) => {
 
     const stored = db.cases.find((c) => c.id === caseId && c.active);
     if (!stored) return fail(404, ERRORS.caseNotFound);
-    if (!isResponsibleLawyer(auth.user, stored)) {
+    if (!canActOnCase(auth.user, stored)) {
         return fail(403, ERRORS.forbiddenNotResponsibleInterruptive);
     }
 
@@ -2860,6 +2905,44 @@ const listInterruptiveActs: Handler = ({ request, params }) => {
 /* ------------------------------------------------------------------ */
 
 /** Del más reciente al más antiguo por fecha; a igual fecha, el último registrado. */
+/**
+ * Deja asentado un cambio de responsable (D-147), sólo si cambia de verdad:
+ * mandar el mismo abogado no deja entrada.
+ */
+function recordResponsibleChange(
+    caseId: number,
+    previousLawyerId: number | null,
+    newLawyerId: number | null,
+    origin: StoredResponsibleChange['origin'],
+    changedById: number,
+    changedAt: string,
+): void {
+    if (previousLawyerId === newLawyerId) return;
+    const id = Math.max(0, ...db.responsibleChanges.map((r) => r.id)) + 1;
+    db.responsibleChanges.push({ id, caseId, previousLawyerId, newLawyerId, origin, changedById, changedAt });
+}
+
+/** El abogado como es hoy, aunque esté dado de baja: es parte de la historia de la causa. */
+function lawyerRefById(id: number | null) {
+    if (id === null) return null;
+    const lawyer = db.lawyers.find((l) => l.id === id);
+    return { id, lastName: lawyer?.lastName ?? '', firstName: lawyer?.firstName ?? '' };
+}
+
+/** El cambio tal como lo devuelve la línea de vida (D-147). `kind` sale de los dos abogados. */
+function toResponsibleLawyerChange(stored: StoredResponsibleChange): ResponsibleLawyerChange {
+    return {
+        id: stored.id,
+        caseId: stored.caseId,
+        kind: stored.newLawyerId === null ? 'ORPHANED' : stored.previousLawyerId === null ? 'ASSIGNED_FROM_ORPHAN' : 'REASSIGNED',
+        previousLawyer: lawyerRefById(stored.previousLawyerId),
+        newLawyer: lawyerRefById(stored.newLawyerId),
+        origin: stored.origin,
+        changedBy: userRef(stored.changedById),
+        changedAt: stored.changedAt,
+    };
+}
+
 function byDateDesc(a: { date: string; registeredAt: string }, b: { date: string; registeredAt: string }): number {
     return b.date.localeCompare(a.date) || b.registeredAt.localeCompare(a.registeredAt);
 }
@@ -2962,6 +3045,16 @@ const getCaseTimeline: Handler = ({ request, params }) => {
                   registeredAt: c.prescriptionDeclaration.registeredAt,
               }]
             : []),
+        // D-147: los cambios de responsable, en todos los fueros.
+        ...db.responsibleChanges
+            .filter((r) => r.caseId === stored.id)
+            .map((r) => ({
+                type: 'RESPONSIBLE_LAWYER_CHANGE' as const,
+                // `changedAt` ya viene con el huso de Córdoba.
+                date: r.changedAt.slice(0, 10),
+                responsibleLawyerChange: toResponsibleLawyerChange(r),
+                registeredAt: r.changedAt,
+            })),
     ];
 
     const data: TimelineEntry[] = entries.sort(byDateDesc).map((entry) => {
@@ -3218,16 +3311,28 @@ const downloadDocumentTemplate: Handler = ({ request, params }) => {
 /** Días hábiles que cuentan como "próximos" (V4 D-66, CA-41.2). */
 const DUE_SOON_BUSINESS_DAYS = 5;
 
-/** Las causas activas del alcance del tablero, ya serializadas (CA-41.6). */
+/**
+ * Las causas activas del alcance del tablero, ya serializadas (CA-41.6). Las
+ * huérfanas no entran en ningún tablero: cómo cuentan está abierto (C-49), y
+ * hoy el backend no las cuenta.
+ */
 function activeCasesWhere(predicate: (stored: StoredCase) => boolean): Case[] {
-    return db.cases.filter(isActiveCase).filter(predicate).map(toCase);
+    return db.cases
+        .filter(isActiveCase)
+        .filter((c) => c.responsibleLawyerId !== null)
+        .filter(predicate)
+        .map(toCase);
 }
 
-const lawyerRef = (c: Case) => ({
+/** El responsable como referencia. `null` en una causa huérfana (D-145): sólo en el reporte. */
+const lawyerRef = (c: Case) => c.responsibleLawyer && ({
     id: c.responsibleLawyer.id,
     lastName: c.responsibleLawyer.lastName,
     firstName: c.responsibleLawyer.firstName,
 });
+
+/** Lo mismo, en un tablero, que nunca tiene huérfanas (`activeCasesWhere`). */
+const dashboardLawyerRef = (c: Case) => lawyerRef(c) as NonNullable<ReturnType<typeof lawyerRef>>;
 
 /**
  * El vencimiento abierto de la causa en un tablero: el del acto procesal del
@@ -3277,7 +3382,7 @@ function deadlinesOf(cases: Case[]): DashboardDeadline[] {
                 caption: c.caption,
                 jurisdiction: c.jurisdiction,
                 currentStateName: c.currentState.name,
-                responsibleLawyer: lawyerRef(c),
+                responsibleLawyer: dashboardLawyerRef(c),
                 dueDate: deadline.dueDate,
                 businessDaysRemaining: deadline.businessDaysRemaining,
             }];
@@ -3296,7 +3401,7 @@ function prescriptionAlertsOf(cases: Case[]): DashboardPrescriptionAlert[] {
                 caseId: c.id,
                 sacNumber: c.sacNumber,
                 caption: c.caption,
-                responsibleLawyer: lawyerRef(c),
+                responsibleLawyer: dashboardLawyerRef(c),
                 legalQualificationName: p.legalQualificationName,
                 startsOn: p.startsOn,
                 expiresOn: p.expiresOn,
@@ -3380,7 +3485,7 @@ const administratorDashboard: Handler = ({ request }) => {
             const own = deadlines.filter((d) => d.responsibleLawyer.id === lawyer.id).map((d) => d.businessDaysRemaining);
             return {
                 lawyer: { id: lawyer.id, lastName: lawyer.lastName, firstName: lawyer.firstName },
-                activeCases: cases.filter((c) => c.responsibleLawyer.id === lawyer.id).length,
+                activeCases: cases.filter((c) => c.responsibleLawyer?.id === lawyer.id).length,
                 openDeadlines: {
                     overdue: own.filter((n) => n < 0).length,
                     dueToday: own.filter((n) => n === 0).length,
@@ -3525,7 +3630,17 @@ function buildMonthlyReport(period: string, currentPeriod: string): MonthlyRepor
     const lawyerPool = db.lawyers.filter((l) =>
         status === 'IN_PROGRESS' ? l.active : l.active || move.atEnd.some((c) => c.responsibleLawyerId === l.id),
     );
-    const average = lawyerPool.length === 0 ? 0 : round1(move.atEnd.length / lawyerPool.length);
+    /* Las huérfanas son el renglón "Sin asignar" (D-145): suman a
+       `activeCases`, pero no al promedio, el mínimo ni el máximo. */
+    const orphans = move.atEnd.filter((c) => c.responsibleLawyerId === null);
+    const assignedCount = move.atEnd.length - orphans.length;
+    const average = lawyerPool.length === 0 ? 0 : round1(assignedCount / lawyerPool.length);
+    const unassigned = {
+        criminal: orphans.filter((c) => c.jurisdiction === 'CRIMINAL').length,
+        administrative: orphans.filter((c) => c.jurisdiction === 'ADMINISTRATIVE').length,
+        amparo: orphans.filter((c) => c.jurisdiction === 'AMPARO').length,
+        total: orphans.length,
+    };
     const lawyers = lawyerPool
         .map((lawyer) => {
             const own = move.atEnd.filter((c) => c.responsibleLawyerId === lawyer.id);
@@ -3661,6 +3776,7 @@ function buildMonthlyReport(period: string, currentPeriod: string): MonthlyRepor
         },
         byJurisdiction,
         lawyers,
+        unassigned,
         monthly,
         proceduralStates,
         prescription,
@@ -3731,6 +3847,7 @@ const monthlyReportFile: Handler = ({ request }) => {
         `2. Causas por fuero: ${report.byJurisdiction.map((j) => `${j.jurisdiction} ${j.atEnd}`).join(' · ')}`,
         `3. Carga por abogado. Promedio: ${s.averagePerLawyer}`,
         ...report.lawyers.map((l) => `   ${l.lawyer.lastName}, ${l.lawyer.firstName}: ${l.total}`),
+        ...(report.unassigned.total > 0 ? [`   Sin asignar: ${report.unassigned.total}`] : []),
         `5. Prescripción: ${report.prescription.cases} causas penales`,
         `6. Plazos del mes: ${report.deadlines.total}`,
     ];
@@ -3880,10 +3997,15 @@ const updateCase: Handler = ({ request, params }) => {
         else details.harmfulActTermDayType = 'Debe ser BUSINESS o CONSECUTIVE.';
     }
     if (has('responsibleLawyerId')) {
+        // `null` no deja huérfana a la causa: eso sólo lo hace la baja de un abogado (D-143).
         const id = readBodyId(body.responsibleLawyerId);
         if (id === undefined || !db.lawyers.some((l) => l.id === id && l.active)) {
             details.responsibleLawyerId = 'No existe un abogado vigente con ese identificador.';
-        } else next.responsibleLawyerId = id;
+        } else {
+            next.responsibleLawyerId = id;
+            // Reasignar una huérfana le borra `orphanedAt` (D-143).
+            next.orphanedAt = null;
+        }
     }
     if (has('proceduralRole')) {
         if (!isProceduralRole(body.proceduralRole, stored.jurisdiction)) details.proceduralRole = 'El rol procesal no corresponde al fuero.';
@@ -3954,6 +4076,10 @@ const updateCase: Handler = ({ request, params }) => {
     }
 
     const folderMoves = next.caption !== stored.caption || next.responsibleLawyerId !== stored.responsibleLawyerId;
+    // D-147: un cambio de responsable queda en la línea de vida (no si es el mismo).
+    if (next.responsibleLawyerId !== undefined) {
+        recordResponsibleChange(stored.id, stored.responsibleLawyerId, next.responsibleLawyerId, 'MANUAL', auth.user.id, nowIso());
+    }
     Object.assign(stored, next);
     if (folderMoves && stored.folder) {
         // Una carpeta que no está creada no tiene nada que mover en Drive.
@@ -4139,7 +4265,7 @@ const updateProceduralAct: Handler = ({ request, params }) => {
     const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id && a.active);
     if (!act) return fail(404, ERRORS.proceduralActNotFound);
 
-    if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleModify);
+    if (!canActOnCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleModify);
 
     const body = asObject(request.body);
     const keys = Object.keys(body);
@@ -4271,7 +4397,7 @@ const deleteProceduralAct: Handler = ({ request, params }) => {
     const act = db.proceduralActs.find((a) => a.id === actId && a.caseId === stored.id && a.active);
     if (!act) return fail(404, ERRORS.proceduralActNotFound);
 
-    if (!isResponsibleLawyer(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleAnnul);
+    if (!canActOnCase(auth.user, stored)) return fail(403, ERRORS.forbiddenNotResponsibleAnnul);
 
     // El cuerpo es opcional: el motivo de la anulación.
     const body = asObject(request.body);

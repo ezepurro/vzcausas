@@ -337,7 +337,12 @@ export function CaseEditForm({
                     <Select
                         id="edit-case-lawyer"
                         {...controlA11y('edit-case-lawyer', errors.responsibleLawyerId, { required: true, note: lawyersFailed })}
-                        options={lawyerOptions}
+                        /* Una causa huérfana arranca sin responsable (D-143): sin la
+                           opción vacía, el navegador mostraría elegido al primer
+                           abogado aunque no lo esté. En las demás no se ofrece. */
+                        options={values.responsibleLawyerId === ''
+                            ? [{ value: '', label: 'Seleccionar responsable…' }, ...lawyerOptions]
+                            : lawyerOptions}
                         value={values.responsibleLawyerId}
                         onChange={(e) => onChange('responsibleLawyerId', e.target.value)}
                     />

@@ -386,9 +386,18 @@ get:
     - name: responsibleLawyerId
       in: query
       required: false
-      description: Filtro "Todos los responsables".
+      description: Filtro "Todos los responsables". Excluyente con `unassigned`.
       schema:
         type: integer
+    - name: unassigned
+      in: query
+      required: false
+      description: |
+        (D-143) `true`: solo las causas huérfanas, sin abogado responsable.
+        Excluyente con `responsibleLawyerId`: juntos responden
+        `400 INVALID_REQUEST` con `details.unassigned`.
+      schema:
+        type: boolean
     - name: proceduralStateId
       in: query
       required: false

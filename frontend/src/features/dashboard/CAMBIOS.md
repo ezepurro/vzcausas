@@ -5,12 +5,36 @@ ni del contrato.
 
 ---
 
+## 2026-11-19 — Reporte: renglón "Sin asignar" (D-145) y selector de mes
+
+**"Sin asignar" en la carga por abogado.** Revisión de V6 del 17/11/2026:
+`GET /reports/monthly` trae `unassigned` (`criminal`, `administrative`,
+`amparo`, `total`), las causas huérfanas activas al cierre. Va como último
+renglón de "Carga por abogado responsable", separado con una línea de puntos,
+con el nombre apagado y **sin la línea del promedio**: no es un abogado y no
+entra en el promedio, el mínimo ni el máximo. Sin huérfanas no se dibuja. Con
+él, la suma de las barras da `summary.activeCases`. El tipo de las alertas de
+prescripción admite `responsibleLawyer` en `null` (la pantalla no las
+muestra; el PDF dice "Sin asignar").
+
+**Selector de mes** (pedido de Luciano Cipolla: estilo, no lógica). Las
+flechas y el mes van en un solo recuadro, del alto de los botones
+(`‹ | Agosto 2026 ▾ | ›`), y "Último cerrado" pasa a ser un link chico al
+costado. Los meses, la URL `?periodo=` y los deshabilitados en los extremos
+no cambian, ni los nombres accesibles ("Mes anterior", "Mes del reporte",
+"Mes siguiente", "Último cerrado").
+
+**Tableros:** no cambian. No cuentan las huérfanas: cómo hacerlo está abierto
+(C-49).
+
+Tests: `components/dashboard/ReportsPage.test.tsx`.
+
 ## 2026-11-14 — "Reportes" (HU-43): lo que difiere del prototipo
 
 La pantalla sigue a la de "Reportes" del prototipo, con estas diferencias, que
 manda el contrato V6 §3.13 o que son de implementación:
 
-- **Selector de mes.** Es un `<select>` nativo entre las flechas, no el
+- **Selector de mes** (rediseñado el 19/11/2026, ver arriba). Es un `<select>` nativo entre las flechas, no el
   calendario desplegable del prototipo. Ofrece los mismos meses (de
   `availableFrom` a `currentPeriod`, este marcado "(en curso)") y suma
   "Último cerrado" cuando no es el que se ve. El mes va en la URL

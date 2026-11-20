@@ -24,7 +24,10 @@ export interface MonthlyReportSummary {
     /** Diferencia con el mes anterior. `null` si ese mes no tiene reporte. */
     admittedChange: number | null
     archivedChange: number | null
-    /** "Promedio por abogado", con un decimal. */
+    /**
+     * "Promedio por abogado", con un decimal: `activeCases` menos
+     * `unassigned.total`, sobre la cantidad de abogados (D-145).
+     */
     averagePerLawyer: number
     /** "Entre 13 y 17 causas". `null` si no hay abogados. */
     minPerLawyer: number | null
@@ -49,6 +52,19 @@ export interface MonthlyReportLawyer {
     amparo: number
     total: number
     differenceFromAverage: number
+}
+
+/**
+ * El renglón "Sin asignar" de la carga por abogado: las causas huérfanas
+ * activas al cierre, sin responsable (D-145). Solo se cuentan, no se nombran.
+ * No es un abogado: no entra en el promedio, el mínimo ni el máximo.
+ * Siempre viene, con ceros si no hay.
+ */
+export interface MonthlyReportUnassigned {
+    criminal: number
+    administrative: number
+    amparo: number
+    total: number
 }
 
 /** Un mes del año. Un mes anterior a `availableFrom` trae las cifras en `null`. */
@@ -79,7 +95,8 @@ export interface MonthlyReportPrescriptionAlert {
     caseId: number
     sacNumber: string | null
     caption: string
-    responsibleLawyer: { id: number; lastName: string; firstName: string }
+    /** `null` en una causa huérfana (D-145): el PDF la imprime como "Sin asignar". */
+    responsibleLawyer: { id: number; lastName: string; firstName: string } | null
     legalQualificationName: string
     elapsedPercentage: number
     expired: boolean
@@ -117,6 +134,8 @@ export interface MonthlyReport {
     summary: MonthlyReportSummary
     byJurisdiction: MonthlyReportJurisdiction[]
     lawyers: MonthlyReportLawyer[]
+    /** `summary.activeCases` es la suma de los `total` de `lawyers` y de `unassigned.total` (D-145). */
+    unassigned: MonthlyReportUnassigned
     monthly: MonthlyReportMonth[]
     proceduralStates: MonthlyReportJurisdictionStates[]
     prescription: MonthlyReportPrescription

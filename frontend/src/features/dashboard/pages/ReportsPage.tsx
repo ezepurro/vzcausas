@@ -137,7 +137,7 @@ export function ReportsPage() {
 
                     <MonthlyFlowChart months={report.monthly} period={report.period} />
 
-                    <LawyerLoadChart lawyers={report.lawyers} average={report.summary.averagePerLawyer} />
+                    <LawyerLoadChart lawyers={report.lawyers} unassigned={report.unassigned} average={report.summary.averagePerLawyer} />
                 </div>
             )}
         </>

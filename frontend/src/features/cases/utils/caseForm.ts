@@ -170,7 +170,8 @@ export function caseToFormValues(c: Case): CaseFormValues {
         })),
         counterparty: c.counterparty ?? '',
         subjectMatter: c.subjectMatter ?? '',
-        responsibleLawyerId: String(c.responsibleLawyer.id),
+        /* Vacío en una causa huérfana (D-143): el formulario exige elegir uno. */
+        responsibleLawyerId: c.responsibleLawyer === null ? '' : String(c.responsibleLawyer.id),
         startDate: c.startDate ?? '',
         clientDetained: c.clientDetained ?? false,
         injunctionGranted: c.injunctionGranted ?? false,

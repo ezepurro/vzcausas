@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react'
 import { Button, DataTable, Pill, type Column } from '@/shared/components/ui'
 import { formatDate } from '@/shared/lib/dates'
-import { formatPersonName } from '@/shared/lib/personName'
 import { useHoverIntent } from '@/shared/hooks/useHoverIntent'
 import { JURISDICTION_LABELS } from '@/features/legal-params'
 import type { Case } from '@/features/cases/types/case'
 import { caseStateLabel } from '@/features/cases/utils/caseState'
 import { deadlineStatus } from '@/features/cases/utils/deadlineStatus'
 import { DEADLINE_KIND_LABELS, openDeadline } from '@/features/cases/utils/openDeadline'
+import { responsibleLabel } from '@/features/cases/utils/responsibleLawyer'
 import { sacLabel } from '@/features/cases/utils/sac'
 
 export interface CasesTableProps {
@@ -78,7 +78,7 @@ export function CasesTable({ rows, onOpen, onIntent, empty, loading, busy }: Cas
         {
             id: 'responsible',
             header: 'Responsable',
-            cell: (c) => formatPersonName(c.responsibleLawyer),
+            cell: (c) => responsibleLabel(c),
             nowrap: true,
             hideWhenNarrow: true,
         },
