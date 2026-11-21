@@ -29,11 +29,12 @@ no está en V6: sale de la propuesta
   errores se arma como `ApiError` con el mismo sobre de siempre.
 - **Aviso fijo** en el panel: no escribir datos de causas ni de clientes (la
   demo usa la capa gratuita de Gemini).
-- **El avatar** (`components/AssistantAvatar.tsx`) es un SVG dibujado para la
-  demo, sin imágenes externas: un abogado de traje con vincha y micrófono de
-  atención sobre el verde del estudio, y un destello dorado por la IA. Usa los
-  tokens de color salvo la piel. Va en el botón, en la cabecera del panel y en
-  el saludo inicial.
+- **El avatar** (`components/AssistantAvatar.tsx`) es una imagen,
+  `assets/assistant-avatar.webp`: un ovejero de traje con vincha y micrófono de
+  atención sobre el verde del estudio. La imagen trae un margen blanco
+  alrededor del círculo, así que el contenedor la recorta en redondo y la
+  amplía (`styles/assistant.css`). Va en el botón, en la cabecera del panel y
+  en el saludo inicial. (Reemplazó al SVG dibujado del primer día.)
 
 ### Lo que toca fuera del módulo
 

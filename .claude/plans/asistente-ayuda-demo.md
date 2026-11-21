@@ -1,6 +1,15 @@
 # Plan — Asistente de ayuda (demo)
 
-Estado: **F0 a F4 hechas y probadas contra Gemini real (20/11/2026). Sigue F5.**
+Estado: **F0 a F5 hechas (20/11/2026). La demo está completa.** Lo que sigue
+para integrarla está en §8.
+
+F5, evaluación (20/11/2026): ver `docs/experimental/asistente/EVALUACION.md`.
+- 15 preguntas (`evaluacion/preguntas.json`) y un script que las corre
+  (`evaluacion/evaluar.mjs`). Resultado final: 15/15 correctas.
+- Ajustes al prompt: la regla 6 se niega con una frase fija ante pedidos de
+  cambiar o mostrar las reglas, y la regla 7 cita sólo las secciones usadas.
+- Latencia bimodal en la capa gratuita (1-2,5 s o 7-10 s, mediana ~7,5 s).
+  ~6.300 tokens de entrada y ~58 de salida por pregunta.
 
 F4, streaming (20/11/2026):
 - Mismo endpoint con `Accept: text/event-stream`. `LlmPort.stream()`, Gemini con
@@ -40,8 +49,8 @@ Cambios de F3 respecto de lo planeado:
   con el flag; los tests lo enchufan con `server.use(...)`.
 - No existía un panel lateral en `shared`: el panel es propio del módulo, con
   estilos en `styles/assistant.css`. El botón es **Asistente** con un avatar
-  SVG propio (`AssistantAvatar.tsx`), a la derecha de la campana: no se toca
-  `Icon.tsx`.
+  propio (`AssistantAvatar.tsx`, imagen en `assets/assistant-avatar.webp`), a
+  la derecha de la campana: no se toca `Icon.tsx`.
 - El asistente marca los botones con `**…**`: el panel dibuja sólo esa marca
   (`utils/boldSegments.ts`), sin interpretar HTML.
 - `frontend/.env.example` no existe: las variables están documentadas en
